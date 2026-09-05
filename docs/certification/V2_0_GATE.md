@@ -21,7 +21,7 @@ This gate converts the repository from an unverified placeholder into a reproduc
 - [x] WebSocket admission/backpressure/frame-size/rate abuse evidence, including deterministic 100,000-frame load simulation.
 - [x] Container runtime smoke test as non-root, read-only root filesystem, all Linux capabilities dropped, no-new-privileges, bounded tmpfs.
 - [x] Deployment wrapper rejects mutable image tags and requires a SHA-256 digest reference before execution.
-- [ ] Runtime base image pinned by immutable digest.
+- [x] Runtime Node base image pinned by immutable SHA-256 digest resolved in CI.
 - [ ] Signed build provenance/attestation path.
 - [ ] Migration expand/contract and rollback evidence.
 - [ ] Repository rules / protected-main policy verified where connector permissions permit.
@@ -32,7 +32,7 @@ The authoritative test suite now covers keyed token-bucket rate limiting with bo
 
 ## Container controls
 
-The CI smoke test runs the production image with a non-root user, read-only root filesystem, `cap-drop=ALL`, `no-new-privileges`, and a small `noexec,nosuid` tmpfs. The deployment wrapper refuses any image reference that is not content-addressed with `@sha256:<digest>`. The remaining container supply-chain item is pinning the Dockerfile base image itself by digest after CI resolves and records the current upstream digest.
+The CI smoke test runs the production image with a non-root user, read-only root filesystem, `cap-drop=ALL`, `no-new-privileges`, and a small `noexec,nosuid` tmpfs. The deployment wrapper refuses any image reference that is not content-addressed with `@sha256:<digest>`. The Dockerfile base is pinned to the exact Node 22 Bookworm Slim digest resolved by CI, removing mutable-tag drift from the runtime base.
 
 ## PostgreSQL ledger invariants
 
