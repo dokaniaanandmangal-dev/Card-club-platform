@@ -21,7 +21,7 @@ This gate ensures that the Game Core produces tamper-evident, deterministic outc
   - [x] 2,500 deterministic complete-hand simulations across the five trick-taking rule packs.
   - [x] Standard Spades ordered bidding and deterministic contract/bag/nil scoring.
   - [x] Standard Hearts simultaneous three-card pass cycle (left/right/across/none) and cumulative match scoring.
-  - [ ] 29 partial-deal auction and Pair/contract scoring.
+  - [x] Standard 29 first-four-card auction, forced-dealer minimum, high-bidder trump selection, exact second deal and Pair-adjusted contract result.
   - [ ] Court Piece and Dehla Pakad setup/match progression modules.
   - [ ] Marriage, Sweep, Poker and Teen Patti legal-transition engines.
 - [ ] Cryptographically unpredictable shuffle/deal evidence with deterministic audit reconstruction after disclosure.
@@ -34,7 +34,9 @@ This gate ensures that the Game Core produces tamper-evident, deterministic outc
 
 The shared play engine accepts only an exact authoritative deck permutation for the selected rule pack, permits only the current player to act, rejects cards not owned by that player, enforces follow-suit from hidden authoritative hands, and recomputes trick winners server-side. It also enforces Spades/Hearts break restrictions, hidden-trump reveal conditions for 29 and Dehla Pakad centre-pile capture semantics. Public/seat projections expose no opponent hand contents.
 
-Spades bidding now accepts exactly one ordered numeric bid from each seat and match scoring accounts for contracts, bags, sandbag penalties and nil. Hearts passing is a commit-before-reveal flow: each player selects three owned cards, no transfer is applied until all four submissions exist, and then the left/right/across/no-pass cycle is applied atomically. Hearts cumulative scoring consumes the authoritative hand summary and resolves the match when the target is reached.
+Spades bidding accepts exactly one ordered numeric bid from each seat and match scoring accounts for contracts, bags, sandbag penalties and nil. Hearts passing is a commit-before-reveal flow: each player selects three owned cards, no transfer is applied until all four submissions exist, and then the left/right/across/no-pass cycle is applied atomically. Hearts cumulative scoring consumes the authoritative hand summary and resolves the match when the target is reached.
+
+29 now preserves its information boundary: only the first four cards per player are present during the auction, the dealer is forced to the configured minimum when the first three players pass, bids must strictly increase, only the high bidder can choose trump, and the second deal must complete the exact 32-card deck. Pair adjusts the bidder contract by four within the configured bounds; the play engine still controls when hidden trump becomes revealed.
 
 ## Persisted commitment boundary
 
