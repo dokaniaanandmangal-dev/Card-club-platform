@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Card Club — Game Lobby</title>
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">CARD CLUB</div>
+      <h1>Choose your table</h1>
+    </div>
+    <div class="status-pill" aria-label="Prototype status">UI PROTOTYPE · PLAY DISABLED</div>
+  </header>
+
+  <main class="layout">
+    <section class="catalog" aria-labelledby="catalog-title">
+      <div class="section-title">
+        <div>
+          <div class="eyebrow">9 APPROVED GAMES</div>
+          <h2 id="catalog-title">Club lobby</h2>
+        </div>
+        <p>Shared table shell, game-specific center interactions.</p>
+      </div>
+      <div id="game-grid" class="game-grid"></div>
+    </section>
+
+    <section id="preview" class="preview" aria-live="polite"></section>
+  </main>
+
+  <footer>
+    Interface study prototype only. Real-money operation remains disabled.
+  </footer>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
