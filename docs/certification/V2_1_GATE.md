@@ -1,6 +1,6 @@
 # v2.1 — Financial Integrity & Deterministic Settlement Gate
 
-Status: **AMBER — atomic ledger-commit slice in progress**
+Status: **AMBER — production persistence adapter integration remaining**
 
 The purpose of this gate is to ensure that no game result can mutate redeemable chip value unless two independent deterministic settlement implementations agree on the exact economic result.
 
@@ -18,8 +18,12 @@ The purpose of this gate is to ensure that no game result can mutate redeemable 
 - [x] Commit custody transfers through the append-only ledger only after dual verification on the certified application path.
 - [x] Enforce sufficient durable custody before any settlement debit.
 - [x] Transactional crash/retry evidence across receipt + ledger commit.
-- [ ] Tamper/replay/adversarial settlement corpus at certification scale.
-- [ ] Financial Integrity Controller end-to-end certification against a production-style persistence adapter.
+- [x] Tamper/replay/adversarial settlement corpus at certification scale: 100,000 malformed/tampered settlements rejected plus 10,000 exact deterministic replays.
+- [ ] Financial Integrity Controller end-to-end certification against a production-style PostgreSQL persistence adapter.
+
+## Adversarial settlement evidence
+
+The application test suite now executes 100,000 deterministic fail-closed settlement attacks spanning malformed outcome digests, value creation, duplicate accounts, cross-boundary identifiers, floating/numeric money representations, PostgreSQL bigint overflow, invalid epochs, invalid hand identities and injected shadow-verifier disagreement. Every case must be rejected. A separate 10,000-run replay loop requires the same verified input to reproduce the exact settlement digest, allocations and bound outcome digest.
 
 ## Atomic settlement commit
 
