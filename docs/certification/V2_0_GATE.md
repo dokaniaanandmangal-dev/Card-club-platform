@@ -17,17 +17,26 @@ This gate converts the repository from an unverified placeholder into a reproduc
 - [x] CycloneDX SBOM generation.
 - [x] Basic high-confidence secret-pattern scan.
 - [x] PostgreSQL replay/idempotency, monotonic fencing, tenant-account isolation, append-only and balanced double-entry evidence.
-- [ ] Edge rate-limit evidence.
-- [ ] WebSocket load/abuse evidence.
-- [ ] Container image build hardened as non-root/read-only/drop-capabilities.
-- [ ] Image digest verification at deployment.
+- [x] Edge token-bucket rate-limit evidence, including deterministic 100,000-request burst containment.
+- [x] WebSocket admission/backpressure/frame-size/rate abuse evidence, including deterministic 100,000-frame load simulation.
+- [x] Container runtime smoke test as non-root, read-only root filesystem, all Linux capabilities dropped, no-new-privileges, bounded tmpfs.
+- [x] Deployment wrapper rejects mutable image tags and requires a SHA-256 digest reference before execution.
+- [x] Runtime Node base image pinned by immutable SHA-256 digest resolved in CI.
 - [ ] Signed build provenance/attestation path.
 - [ ] Migration expand/contract and rollback evidence.
 - [ ] Repository rules / protected-main policy verified where connector permissions permit.
 
+## Perimeter controls
+
+The authoritative test suite now covers keyed token-bucket rate limiting with bounded key cardinality, connection caps per authenticated WebSocket subject, frame-size limits, message-window throttling, and in-flight backpressure. Load simulations are deterministic so regressions produce reproducible failures rather than benchmark-only observations.
+
+## Container controls
+
+The CI smoke test runs the production image with a non-root user, read-only root filesystem, `cap-drop=ALL`, `no-new-privileges`, and a small `noexec,nosuid` tmpfs. The deployment wrapper refuses any image reference that is not content-addressed with `@sha256:<digest>`. The Dockerfile base is pinned to the exact Node 22 Bookworm Slim digest resolved by CI, removing mutable-tag drift from the runtime base.
+
 ## PostgreSQL ledger invariants
 
-The authoritative integration test now verifies that exact retries converge to one transaction, operation-ID reuse with changed economic data fails closed, stale fencing tokens cannot create new financial mutations, cross-tenant account references are rejected, ledger rows cannot be updated/deleted, and every accepted transfer produces a balanced two-entry journal in integer minor units.
+The authoritative integration test verifies that exact retries converge to one transaction, operation-ID reuse with changed economic data fails closed, stale fencing tokens cannot create new financial mutations, cross-tenant account references are rejected, ledger rows cannot be updated/deleted, and every accepted transfer produces a balanced two-entry journal in integer minor units.
 
 ## Recovery note
 
