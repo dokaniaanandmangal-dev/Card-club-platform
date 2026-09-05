@@ -1,8 +1,8 @@
 # v2.2 — Game Outcome Integrity & Hidden-State Isolation Gate
 
-Status: **AMBER — first control slice in progress**
+Status: **AMBER — outcome persistence and financial binding implemented**
 
-This gate ensures that the Game Core produces tamper-evident, deterministic outcomes while preventing one player, spectator or generic public channel from receiving another player's hidden state. Financial settlement may bind only to an authoritative game outcome digest.
+This gate ensures that the Game Core produces tamper-evident, deterministic outcomes while preventing one player, spectator or generic public channel from receiving another player's hidden state. Financial settlement may bind only to an authoritative game outcome digest persisted by Game Core.
 
 ## Gate controls
 
@@ -14,8 +14,8 @@ This gate ensures that the Game Core produces tamper-evident, deterministic outc
 - [x] Caller input is detached and authoritative/projection outputs are recursively frozen.
 - [x] Fail-closed validation for duplicate identities, unsafe numbers, dangerous keys, cycles, depth/size limits and malformed chain metadata.
 - [x] 10,000 deterministic hidden-state isolation cases prove no opponent secret crosses public or per-seat projection boundaries.
-- [ ] Persist authoritative outcome commitments append-only with tenant/table/hand idempotency.
-- [ ] Bind Financial Integrity Controller input directly to a persisted authoritative game outcome rather than accepting a free-form digest.
+- [x] Persist authoritative outcome commitments append-only with tenant/table/hand idempotency and per-table chain serialization.
+- [x] Financial Integrity Controller resolves the exact persisted tenant/table/hand/epoch commitment and rejects caller-supplied free-form outcome digests.
 - [ ] Server-authoritative action sequencing and legal-transition validation.
 - [ ] Cryptographically unpredictable shuffle/deal evidence with deterministic audit reconstruction after disclosure.
 - [ ] Reconnect/resume projection tests proving hidden-state boundaries survive session recovery.
@@ -23,13 +23,15 @@ This gate ensures that the Game Core produces tamper-evident, deterministic outc
 - [ ] Multi-table and multi-tenant isolation stress corpus.
 - [ ] Game Integrity Controller end-to-end certification.
 
+## Persisted commitment boundary
+
+`game_outcomes` is append-only and serializes one digest chain per tenant/table. Exact hand replay is idempotent; changed metadata for the same hand, sequence gaps, wrong previous digests, updates and deletes fail closed. Only commitment metadata is persisted in this slice; raw hidden state is deliberately not copied into the database by this mechanism.
+
+The Financial Integrity Controller no longer accepts a free-form `outcomeDigest`. Before dual settlement verification it resolves the same tenant/table/hand/epoch from persisted Game Core commitments and injects that digest into both independent settlement verifiers. Missing or boundary-mismatched outcomes block financial persistence.
+
 ## Security boundary
 
 The outcome digest is a tamper-evident commitment, not by itself proof that a malicious server generated a fair deal. Shuffle entropy, deal generation, action legality and server-authenticity controls are separate items in this gate and must be certified before game integrity can be GREEN.
-
-## Financial binding
-
-v2.1 already requires an immutable `outcomeDigest` before settlement. v2.2 will remove the remaining trust gap by making the financial path consume only an outcome commitment persisted by the Game Core for the same tenant/table/hand/epoch.
 
 ## Launch boundary
 
