@@ -73,6 +73,28 @@ jobs:
       - name: Replay, fencing, isolation and append-only evidence
         run: docker exec -i "${{ job.services.postgres.id }}" psql -v ON_ERROR_STOP=1 -U postgres -d postgres < test/postgres-ledger.sql
 
+  migration-rollback:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17-bookworm@sha256:051f7b7b3abdd564d5d1bd1e8c4b9c1b6e77087d1dd22020ede611c096a272e0
+        env:
+          POSTGRES_PASSWORD: certification-only
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Expand, backfill, contract and rollback evidence
+        run: ./test/migration-cycle.sh "${{ job.services.postgres.id }}"
+
   container-hardening:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
