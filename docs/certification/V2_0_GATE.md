@@ -23,12 +23,16 @@ This gate converts the repository from an unverified placeholder into a reproduc
 - [x] Deployment wrapper rejects mutable image tags and requires a SHA-256 digest reference before execution.
 - [x] Runtime Node base image pinned by immutable SHA-256 digest resolved in CI.
 - [ ] Signed build provenance/attestation path.
-- [ ] Migration expand/contract and rollback evidence.
+- [x] Migration expand/backfill/contract compatibility and disposable-database rollback evidence.
 - [ ] Repository rules / protected-main policy verified where connector permissions permit.
+
+## Migration controls
+
+The integration gate exercises an old-writer-compatible expansion, explicit backfill, constraint validation, safe contraction with a default retained for old writers, invalid-value rejection, and a disposable-database down migration back to the base schema. Production policy prefers application rollback against the expanded schema; destructive schema rollback is restricted to pre-launch/isolated recovery or separately analyzed recovery situations.
 
 ## Perimeter controls
 
-The authoritative test suite now covers keyed token-bucket rate limiting with bounded key cardinality, connection caps per authenticated WebSocket subject, frame-size limits, message-window throttling, and in-flight backpressure. Load simulations are deterministic so regressions produce reproducible failures rather than benchmark-only observations.
+The authoritative test suite covers keyed token-bucket rate limiting with bounded key cardinality, connection caps per authenticated WebSocket subject, frame-size limits, message-window throttling, and in-flight backpressure. Load simulations are deterministic so regressions produce reproducible failures rather than benchmark-only observations.
 
 ## Container controls
 
