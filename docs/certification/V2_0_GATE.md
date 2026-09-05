@@ -12,6 +12,7 @@ This gate converts the repository from an unverified placeholder into a reproduc
 - [x] Minimal GitHub Actions permissions.
 - [x] `npm ci --ignore-scripts` reproducible install path.
 - [x] Unit/security test command.
+- [x] Deterministic hostile-envelope corpus: 20,000/20,000 rejected on the authoritative validator.
 - [x] High-severity dependency-audit gate.
 - [x] CycloneDX SBOM generation.
 - [x] Basic high-confidence secret-pattern scan.
@@ -26,7 +27,7 @@ This gate converts the repository from an unverified placeholder into a reproduc
 
 ## Recovery note
 
-A prior conversational certification artifact was reported as `card-club-certification-v1.9.zip` with 83/83 tests and 20,000/20,000 hostile envelopes rejected. That artifact is not present in the current GitHub repository or accessible file library, so those results are historical context only and are **not** being represented as evidence for the current authoritative commit. All certification evidence must be regenerated or imported and verified against this repository.
+A prior conversational certification artifact was reported as `card-club-certification-v1.9.zip` with 83/83 tests and 20,000/20,000 hostile envelopes rejected. That artifact is not present in the current GitHub repository or accessible file library, so those results are historical context only and are **not** being represented as evidence for the current authoritative commit. All certification evidence must be regenerated or imported and verified against this repository. The protocol-perimeter hostile-envelope result has now been regenerated in-repository; the earlier 83-test package as a whole has not.
 
 ## Gate rule
 
