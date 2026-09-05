@@ -1,6 +1,7 @@
 import { verifyDualSettlement } from './settlement-controller.js';
 
 const FENCE_RE = /^[1-9][0-9]{0,18}$/;
+const SHA256_RE = /^[0-9a-f]{64}$/;
 const PG_BIGINT_MAX = 9223372036854775807n;
 
 function validateFenceToken(value) {
@@ -13,8 +14,44 @@ function freezeAllocations(rows) {
   return Object.freeze(rows.map(row => Object.freeze({ ...row })));
 }
 
+async function emitBlock(onIntegrityEvent, input, error) {
+  if (!onIntegrityEvent) return;
+  await onIntegrityEvent(Object.freeze({
+    type: 'financial_integrity_block',
+    reason: error instanceof Error ? error.message : 'unknown_verification_failure',
+    tenantId: typeof input?.tenantId === 'string' ? input.tenantId : null,
+    tableId: typeof input?.tableId === 'string' ? input.tableId : null,
+    handId: typeof input?.handId === 'string' ? input.handId : null,
+  }));
+}
+
+async function bindPersistedOutcome(input, loadOutcome) {
+  if (typeof loadOutcome !== 'function') throw new Error('financial_integrity:outcome_loader_required');
+  if (Object.prototype.hasOwnProperty.call(input ?? {}, 'outcomeDigest')) {
+    throw new Error('financial_integrity:free_form_outcome_digest_forbidden');
+  }
+  const persisted = await loadOutcome(Object.freeze({
+    tenantId: input?.tenantId,
+    tableId: input?.tableId,
+    handId: input?.handId,
+    epoch: input?.epoch,
+  }));
+  if (!persisted || typeof persisted !== 'object') throw new Error('financial_integrity:outcome_not_persisted');
+  if (
+    persisted.tenantId !== input?.tenantId
+    || persisted.tableId !== input?.tableId
+    || persisted.handId !== input?.handId
+    || persisted.epoch !== input?.epoch
+    || !SHA256_RE.test(persisted.outcomeDigest ?? '')
+  ) {
+    throw new Error('financial_integrity:outcome_boundary_mismatch');
+  }
+  return persisted.outcomeDigest;
+}
+
 export async function executeFinancialIntegritySettlement(input, {
   commit,
+  loadOutcome,
   fenceToken,
   primary,
   shadow,
@@ -31,19 +68,16 @@ export async function executeFinancialIntegritySettlement(input, {
 
   let verified;
   try {
+    // The financial path never trusts a caller-supplied outcome digest. It first
+    // resolves the exact tenant/table/hand/epoch commitment persisted by Game Core.
+    const outcomeDigest = await bindPersistedOutcome(input, loadOutcome);
+    const boundInput = Object.freeze({ ...input, outcomeDigest });
+
     // No financial persistence callback is reachable until both independent
-    // settlement implementations agree on the exact outcome-bound result.
-    verified = verifyDualSettlement(input, verifierOptions);
+    // settlement implementations agree on the exact persisted outcome-bound result.
+    verified = verifyDualSettlement(boundInput, verifierOptions);
   } catch (error) {
-    if (onIntegrityEvent) {
-      await onIntegrityEvent(Object.freeze({
-        type: 'financial_integrity_block',
-        reason: error instanceof Error ? error.message : 'unknown_verification_failure',
-        tenantId: typeof input?.tenantId === 'string' ? input.tenantId : null,
-        tableId: typeof input?.tableId === 'string' ? input.tableId : null,
-        handId: typeof input?.handId === 'string' ? input.handId : null,
-      }));
-    }
+    await emitBlock(onIntegrityEvent, input, error);
     throw error;
   }
 
