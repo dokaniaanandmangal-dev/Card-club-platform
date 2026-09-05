@@ -56,6 +56,8 @@ jobs:
         image: postgres:17-bookworm@sha256:051f7b7b3abdd564d5d1bd1e8c4b9c1b6e77087d1dd22020ede611c096a272e0
         env:
           POSTGRES_PASSWORD: certification-only
+        ports:
+          - 5432:5432
         options: >-
           --health-cmd "pg_isready -U postgres"
           --health-interval 5s
@@ -66,6 +68,15 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
+
+      - name: Set up Node 22
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Reproducible adapter dependencies
+        run: npm ci --ignore-scripts
 
       - name: Apply ledger schema
         run: docker exec -i "${{ job.services.postgres.id }}" psql -v ON_ERROR_STOP=1 -U postgres -d postgres < db/001_ledger_core.sql
@@ -84,6 +95,11 @@ jobs:
 
       - name: Atomic settlement-to-ledger, custody and crash/retry evidence
         run: docker exec -i "${{ job.services.postgres.id }}" psql -v ON_ERROR_STOP=1 -U postgres -d postgres < test/postgres-settlement-commit.sql
+
+      - name: Production-style Node PostgreSQL adapter end-to-end evidence
+        env:
+          PG_INTEGRATION_URL: postgresql://postgres:certification-only@127.0.0.1:5432/postgres
+        run: node --test test/postgres-adapter.integration.test.js
 
   migration-rollback:
     runs-on: ubuntu-24.04

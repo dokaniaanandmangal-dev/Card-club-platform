@@ -38,8 +38,9 @@ test('financial integrity controller emits persistence only after dual verificat
   assert.deepEqual(result, { status: 'applied' });
 });
 
-test('shadow mismatch blocks persistence callback', async () => {
+test('shadow mismatch blocks persistence and emits an integrity event', async () => {
   let calls = 0;
+  const events = [];
   const maliciousShadow = input => {
     const result = computeShadowSettlement(input);
     return { ...result, allocations: result.allocations.map((row, i) => i === 0 ? { ...row, deltaMinor: '1999' } : row) };
@@ -49,10 +50,15 @@ test('shadow mismatch blocks persistence callback', async () => {
       fenceToken: '42',
       shadow: maliciousShadow,
       commit: async () => { calls += 1; },
+      onIntegrityEvent: async event => events.push(event),
     }),
     /shadow_mismatch/,
   );
   assert.equal(calls, 0);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].type, 'financial_integrity_block');
+  assert.equal(events[0].reason, 'settlement:shadow_mismatch');
+  assert.equal(events[0].handId, 'hand-controller-1');
 });
 
 test('invalid fencing metadata blocks persistence before settlement commit', async () => {

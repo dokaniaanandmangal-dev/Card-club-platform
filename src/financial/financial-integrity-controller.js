@@ -18,16 +18,35 @@ export async function executeFinancialIntegritySettlement(input, {
   fenceToken,
   primary,
   shadow,
+  onIntegrityEvent,
 } = {}) {
   if (typeof commit !== 'function') throw new Error('financial_integrity:commit_adapter_required');
+  if (onIntegrityEvent !== undefined && typeof onIntegrityEvent !== 'function') {
+    throw new Error('financial_integrity:invalid_event_sink');
+  }
   const validatedFence = validateFenceToken(fenceToken);
   const verifierOptions = {};
   if (primary !== undefined) verifierOptions.primary = primary;
   if (shadow !== undefined) verifierOptions.shadow = shadow;
 
-  // No persistence callback is reachable until both independent settlement
-  // implementations have agreed on the exact outcome-bound economic result.
-  const verified = verifyDualSettlement(input, verifierOptions);
+  let verified;
+  try {
+    // No financial persistence callback is reachable until both independent
+    // settlement implementations agree on the exact outcome-bound result.
+    verified = verifyDualSettlement(input, verifierOptions);
+  } catch (error) {
+    if (onIntegrityEvent) {
+      await onIntegrityEvent(Object.freeze({
+        type: 'financial_integrity_block',
+        reason: error instanceof Error ? error.message : 'unknown_verification_failure',
+        tenantId: typeof input?.tenantId === 'string' ? input.tenantId : null,
+        tableId: typeof input?.tableId === 'string' ? input.tableId : null,
+        handId: typeof input?.handId === 'string' ? input.handId : null,
+      }));
+    }
+    throw error;
+  }
+
   const command = Object.freeze({
     tenantId: verified.tenantId,
     tableId: verified.tableId,
