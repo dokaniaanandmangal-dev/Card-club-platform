@@ -14,16 +14,16 @@ concurrency:
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
 
       - name: Set up Node 22
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: '22'
           cache: npm
@@ -42,3 +42,28 @@ jobs:
 
       - name: Verify SBOM is non-empty
         run: test -s sbom.cdx.json
+
+  postgres-ledger:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17-bookworm@sha256:051f7b7b3abdd564d5d1bd1e8c4b9c1b6e77087d1dd22020ede611c096a272e0
+        env:
+          POSTGRES_PASSWORD: certification-only
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Apply ledger schema
+        run: docker exec -i "${{ job.services.postgres.id }}" psql -v ON_ERROR_STOP=1 -U postgres -d postgres < db/001_ledger_core.sql
+
+      - name: Replay, fencing, isolation and append-only evidence
+        run: docker exec -i "${{ job.services.postgres.id }}" psql -v ON_ERROR_STOP=1 -U postgres -d postgres < test/postgres-ledger.sql

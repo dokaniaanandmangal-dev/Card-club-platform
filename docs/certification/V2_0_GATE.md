@@ -16,7 +16,7 @@ This gate converts the repository from an unverified placeholder into a reproduc
 - [x] High-severity dependency-audit gate.
 - [x] CycloneDX SBOM generation.
 - [x] Basic high-confidence secret-pattern scan.
-- [ ] PostgreSQL replay/fencing evidence imported or regenerated against authoritative source.
+- [x] PostgreSQL replay/idempotency, monotonic fencing, tenant-account isolation, append-only and balanced double-entry evidence.
 - [ ] Edge rate-limit evidence.
 - [ ] WebSocket load/abuse evidence.
 - [ ] Container image build hardened as non-root/read-only/drop-capabilities.
@@ -24,6 +24,10 @@ This gate converts the repository from an unverified placeholder into a reproduc
 - [ ] Signed build provenance/attestation path.
 - [ ] Migration expand/contract and rollback evidence.
 - [ ] Repository rules / protected-main policy verified where connector permissions permit.
+
+## PostgreSQL ledger invariants
+
+The authoritative integration test now verifies that exact retries converge to one transaction, operation-ID reuse with changed economic data fails closed, stale fencing tokens cannot create new financial mutations, cross-tenant account references are rejected, ledger rows cannot be updated/deleted, and every accepted transfer produces a balanced two-entry journal in integer minor units.
 
 ## Recovery note
 
