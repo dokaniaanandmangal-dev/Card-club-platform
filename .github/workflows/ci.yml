@@ -73,6 +73,12 @@ jobs:
       - name: Replay, fencing, isolation and append-only evidence
         run: docker exec -i "${{ job.services.postgres.id }}" psql -v ON_ERROR_STOP=1 -U postgres -d postgres < test/postgres-ledger.sql
 
+      - name: Apply verified-settlement receipt schema
+        run: docker exec -i "${{ job.services.postgres.id }}" psql -v ON_ERROR_STOP=1 -U postgres -d postgres < db/002_settlement_receipts.sql
+
+      - name: Settlement receipt idempotency and outcome-binding evidence
+        run: docker exec -i "${{ job.services.postgres.id }}" psql -v ON_ERROR_STOP=1 -U postgres -d postgres < test/postgres-settlement-receipt.sql
+
   migration-rollback:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
