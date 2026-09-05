@@ -1,6 +1,6 @@
 # v2.0 — Secure Supply Chain & Deployment Certification Gate
 
-Status: **AMBER**
+Status: **AMBER — technical evidence complete; repository governance pending**
 
 This gate converts the repository from an unverified placeholder into a reproducible, auditable build baseline. It does **not** certify the complete card-club application or authorize real-money operation.
 
@@ -9,7 +9,7 @@ This gate converts the repository from an unverified placeholder into a reproduc
 - [x] Committed package lockfile.
 - [x] Node runtime policy fixed to major version 22 for this gate.
 - [x] CI action references pinned to immutable commit SHAs.
-- [x] Minimal GitHub Actions permissions.
+- [x] Minimal GitHub Actions permissions, with elevated attestation permissions isolated to the provenance job.
 - [x] `npm ci --ignore-scripts` reproducible install path.
 - [x] Unit/security test command.
 - [x] Deterministic hostile-envelope corpus: 20,000/20,000 rejected on the authoritative validator.
@@ -22,9 +22,13 @@ This gate converts the repository from an unverified placeholder into a reproduc
 - [x] Container runtime smoke test as non-root, read-only root filesystem, all Linux capabilities dropped, no-new-privileges, bounded tmpfs.
 - [x] Deployment wrapper rejects mutable image tags and requires a SHA-256 digest reference before execution.
 - [x] Runtime Node base image pinned by immutable SHA-256 digest resolved in CI.
-- [ ] Signed build provenance/attestation path.
+- [x] OIDC/Sigstore-backed SLSA build provenance generated and independently verified in CI against repository, signer workflow, and source digest.
 - [x] Migration expand/backfill/contract compatibility and disposable-database rollback evidence.
 - [ ] Repository rules / protected-main policy verified where connector permissions permit.
+
+## Provenance controls
+
+The runtime image exported by CI is signed through GitHub artifact attestations using a narrowly permissioned provenance job. Verification checks the repository identity, exact signer workflow, and source digest. Mutable tags are not accepted by the deployment wrapper; production OCI publication should preserve this policy by attesting and deploying the registry digest.
 
 ## Migration controls
 
@@ -48,4 +52,4 @@ A prior conversational certification artifact was reported as `card-club-certifi
 
 ## Gate rule
 
-GREEN requires reproducible evidence tied to an exact commit SHA. Historical or conversational claims do not satisfy the gate.
+GREEN requires reproducible evidence tied to an exact commit SHA and protected-main governance that prevents bypass of certification checks. Historical or conversational claims do not satisfy the gate.
