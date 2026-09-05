@@ -13,5 +13,8 @@
     "check:lock": "node scripts/check-lockfile.mjs",
     "check:secrets": "node scripts/check-secrets.mjs",
     "check": "npm run check:lock && npm run check:secrets && npm test"
+  },
+  "dependencies": {
+    "pg": "8.16.3"
   }
 }
