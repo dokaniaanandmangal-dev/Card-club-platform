@@ -21,28 +21,21 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
-
       - name: Set up Node 22
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: '22'
           cache: npm
-
       - name: Reproducible install
         run: npm ci --ignore-scripts
-
       - name: Certification checks
         run: npm run check
-
       - name: Dependency audit
         run: npm audit --audit-level=high
-
       - name: Generate CycloneDX SBOM
         run: npm sbom --sbom-format=cyclonedx > sbom.cdx.json
-
       - name: Verify SBOM is non-empty
         run: test -s sbom.cdx.json
-
       - name: Validate digest-only deployment policy
         run: |
           node scripts/verify-image-ref.mjs "ghcr.io/example/card-club@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" >/dev/null
@@ -68,35 +61,30 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
-
       - name: Set up Node 22
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: '22'
           cache: npm
-
       - name: Reproducible adapter dependencies
         run: npm ci --ignore-scripts
-
       - name: Apply ledger schema
         run: docker exec -i "${{ job.services.postgres.id }}" psql -v ON_ERROR_STOP=1 -U postgres -d postgres < db/001_ledger_core.sql
-
       - name: Apply verified-settlement receipt schema
         run: docker exec -i "${{ job.services.postgres.id }}" psql -v ON_ERROR_STOP=1 -U postgres -d postgres < db/002_settlement_receipts.sql
-
       - name: Apply atomic settlement-commit schema
         run: docker exec -i "${{ job.services.postgres.id }}" psql -v ON_ERROR_STOP=1 -U postgres -d postgres < db/003_settlement_commit.sql
-
+      - name: Apply game-outcome commitment schema
+        run: docker exec -i "${{ job.services.postgres.id }}" psql -v ON_ERROR_STOP=1 -U postgres -d postgres < db/004_game_outcomes.sql
       - name: Replay, fencing, isolation and append-only evidence
         run: docker exec -i "${{ job.services.postgres.id }}" psql -v ON_ERROR_STOP=1 -U postgres -d postgres < test/postgres-ledger.sql
-
       - name: Settlement receipt idempotency and outcome-binding evidence
         run: docker exec -i "${{ job.services.postgres.id }}" psql -v ON_ERROR_STOP=1 -U postgres -d postgres < test/postgres-settlement-receipt.sql
-
       - name: Atomic settlement-to-ledger, custody and crash/retry evidence
         run: docker exec -i "${{ job.services.postgres.id }}" psql -v ON_ERROR_STOP=1 -U postgres -d postgres < test/postgres-settlement-commit.sql
-
-      - name: Production-style Node PostgreSQL adapter end-to-end evidence
+      - name: Game outcome append-only, idempotency and chain evidence
+        run: docker exec -i "${{ job.services.postgres.id }}" psql -v ON_ERROR_STOP=1 -U postgres -d postgres < test/postgres-game-outcome.sql
+      - name: Production-style Game-to-Financial PostgreSQL binding evidence
         env:
           PG_INTEGRATION_URL: postgresql://postgres:certification-only@127.0.0.1:5432/postgres
         run: node --test test/postgres-adapter.integration.test.js
@@ -119,7 +107,6 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
-
       - name: Expand, backfill, contract and rollback evidence
         run: ./test/migration-cycle.sh "${{ job.services.postgres.id }}"
 
@@ -131,19 +118,11 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
-
       - name: Build runtime image
         run: docker build --pull --tag card-club-certification:test .
-
       - name: Run with production hardening controls
         run: |
-          cid=$(docker run -d \
-            --read-only \
-            --cap-drop=ALL \
-            --security-opt=no-new-privileges \
-            --tmpfs /tmp:rw,noexec,nosuid,size=16m \
-            -p 127.0.0.1:18080:8080 \
-            card-club-certification:test)
+          cid=$(docker run -d --read-only --cap-drop=ALL --security-opt=no-new-privileges --tmpfs /tmp:rw,noexec,nosuid,size=16m -p 127.0.0.1:18080:8080 card-club-certification:test)
           trap 'docker rm -f "$cid" >/dev/null 2>&1 || true' EXIT
           for i in $(seq 1 20); do
             if curl --fail --silent http://127.0.0.1:18080/healthz | grep -q '"ok":true'; then break; fi
@@ -169,18 +148,15 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
-
       - name: Build runtime artifact
         run: |
           docker build --pull --tag card-club-certification:attested .
           docker save --output card-club-runtime.tar card-club-certification:attested
           sha256sum card-club-runtime.tar
-
       - name: Generate signed SLSA provenance
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
         with:
           subject-path: card-club-runtime.tar
-
       - name: Verify signed provenance
         env:
           GH_TOKEN: ${{ github.token }}
