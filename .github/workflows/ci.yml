@@ -70,14 +70,20 @@ jobs:
       - name: Apply ledger schema
         run: docker exec -i "${{ job.services.postgres.id }}" psql -v ON_ERROR_STOP=1 -U postgres -d postgres < db/001_ledger_core.sql
 
-      - name: Replay, fencing, isolation and append-only evidence
-        run: docker exec -i "${{ job.services.postgres.id }}" psql -v ON_ERROR_STOP=1 -U postgres -d postgres < test/postgres-ledger.sql
-
       - name: Apply verified-settlement receipt schema
         run: docker exec -i "${{ job.services.postgres.id }}" psql -v ON_ERROR_STOP=1 -U postgres -d postgres < db/002_settlement_receipts.sql
 
+      - name: Apply atomic settlement-commit schema
+        run: docker exec -i "${{ job.services.postgres.id }}" psql -v ON_ERROR_STOP=1 -U postgres -d postgres < db/003_settlement_commit.sql
+
+      - name: Replay, fencing, isolation and append-only evidence
+        run: docker exec -i "${{ job.services.postgres.id }}" psql -v ON_ERROR_STOP=1 -U postgres -d postgres < test/postgres-ledger.sql
+
       - name: Settlement receipt idempotency and outcome-binding evidence
         run: docker exec -i "${{ job.services.postgres.id }}" psql -v ON_ERROR_STOP=1 -U postgres -d postgres < test/postgres-settlement-receipt.sql
+
+      - name: Atomic settlement-to-ledger, custody and crash/retry evidence
+        run: docker exec -i "${{ job.services.postgres.id }}" psql -v ON_ERROR_STOP=1 -U postgres -d postgres < test/postgres-settlement-commit.sql
 
   migration-rollback:
     runs-on: ubuntu-24.04

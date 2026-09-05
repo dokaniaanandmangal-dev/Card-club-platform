@@ -1,6 +1,6 @@
 # v2.1 — Financial Integrity & Deterministic Settlement Gate
 
-Status: **AMBER — receipt/outcome binding slice in progress**
+Status: **AMBER — atomic ledger-commit slice in progress**
 
 The purpose of this gate is to ensure that no game result can mutate redeemable chip value unless two independent deterministic settlement implementations agree on the exact economic result.
 
@@ -15,11 +15,21 @@ The purpose of this gate is to ensure that no game result can mutate redeemable 
 - [x] 10,000 deterministic conserved settlement cases agree across primary and shadow implementations.
 - [x] Persist verified settlement receipts with unique tenant/hand idempotency.
 - [x] Bind settlement receipt to immutable game-result/outcome digest.
-- [ ] Commit custody transfers through the append-only ledger only after dual verification.
-- [ ] Enforce sufficient custody/balance before debit.
-- [ ] Transactional crash/retry evidence across receipt + ledger commit.
-- [ ] Tamper/replay/adversarial settlement corpus.
-- [ ] Financial Integrity Controller end-to-end certification.
+- [x] Commit custody transfers through the append-only ledger only after dual verification on the certified application path.
+- [x] Enforce sufficient durable custody before any settlement debit.
+- [x] Transactional crash/retry evidence across receipt + ledger commit.
+- [ ] Tamper/replay/adversarial settlement corpus at certification scale.
+- [ ] Financial Integrity Controller end-to-end certification against a production-style persistence adapter.
+
+## Atomic settlement commit
+
+The application Financial Integrity Controller has no persistence callback path before primary and shadow settlement results agree. It emits an immutable command containing the outcome-bound settlement digest, canonical allocations and fencing token. PostgreSQL then records the receipt, locks the tenant fence followed by participant accounts in deterministic order, proves every losing account has sufficient durable ledger custody, decomposes N-way zero-sum allocations into deterministic pairwise transfers, writes only through the append-only double-entry ledger, links those transactions back to the receipt, and inserts an append-only commit marker in one database transaction.
+
+Exact replay of an already committed hand returns the existing commit without creating new value movement, including after a newer fencing token has won. A database rollback leaves no durable receipt, ledger transaction, mapping or commit marker, so a retry can apply exactly once.
+
+## Funding boundary
+
+Settlement custody checks operate on durable net ledger positions. Test fixture funding represents an already-authorized upstream player-credit/table-custody flow. This gate does not define or silently introduce mint, burn, rake, bonus or payment-credit economics; those remain separate business/accounting controls.
 
 ## Receipt controls
 
