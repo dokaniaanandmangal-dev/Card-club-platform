@@ -1,6 +1,6 @@
 # v2.2 — Game Outcome Integrity & Hidden-State Isolation Gate
 
-Status: **AMBER — outcome persistence, financial binding and trick-play legality implemented**
+Status: **AMBER — outcome persistence, financial binding and trick-game legality advancing**
 
 This gate ensures that the Game Core produces tamper-evident, deterministic outcomes while preventing one player, spectator or generic public channel from receiving another player's hidden state. Financial settlement may bind only to an authoritative game outcome digest persisted by Game Core.
 
@@ -19,7 +19,10 @@ This gate ensures that the Game Core produces tamper-evident, deterministic outc
 - [ ] Server-authoritative action sequencing and legal-transition validation across all nine games.
   - [x] Reusable trick-taking play core for Spades, Hearts, 29, Court Piece and Dehla Pakad: exact-deck validation, ownership, turn order, follow-suit, trump/break rules, trick winner and capture semantics.
   - [x] 2,500 deterministic complete-hand simulations across the five trick-taking rule packs.
-  - [ ] Game-specific setup/auction/pass phases and complete match scoring.
+  - [x] Standard Spades ordered bidding and deterministic contract/bag/nil scoring.
+  - [x] Standard Hearts simultaneous three-card pass cycle (left/right/across/none) and cumulative match scoring.
+  - [ ] 29 partial-deal auction and Pair/contract scoring.
+  - [ ] Court Piece and Dehla Pakad setup/match progression modules.
   - [ ] Marriage, Sweep, Poker and Teen Patti legal-transition engines.
 - [ ] Cryptographically unpredictable shuffle/deal evidence with deterministic audit reconstruction after disclosure.
 - [ ] Reconnect/resume projection tests proving hidden-state boundaries survive session recovery.
@@ -31,7 +34,7 @@ This gate ensures that the Game Core produces tamper-evident, deterministic outc
 
 The shared play engine accepts only an exact authoritative deck permutation for the selected rule pack, permits only the current player to act, rejects cards not owned by that player, enforces follow-suit from hidden authoritative hands, and recomputes trick winners server-side. It also enforces Spades/Hearts break restrictions, hidden-trump reveal conditions for 29 and Dehla Pakad centre-pile capture semantics. Public/seat projections expose no opponent hand contents.
 
-This slice deliberately separates play-phase legality from game setup: Spades bidding, Hearts passing, 29's partial-deal auction, Court Piece/Dehla trump selection and region-specific match scoring will be added as explicit rule modules rather than approximated inside the common engine.
+Spades bidding now accepts exactly one ordered numeric bid from each seat and match scoring accounts for contracts, bags, sandbag penalties and nil. Hearts passing is a commit-before-reveal flow: each player selects three owned cards, no transfer is applied until all four submissions exist, and then the left/right/across/no-pass cycle is applied atomically. Hearts cumulative scoring consumes the authoritative hand summary and resolves the match when the target is reached.
 
 ## Persisted commitment boundary
 
@@ -41,7 +44,7 @@ The Financial Integrity Controller no longer accepts a free-form `outcomeDigest`
 
 ## Security boundary
 
-The outcome digest is a tamper-evident commitment, not by itself proof that a malicious server generated a fair deal. Shuffle entropy, deal generation, action legality outside the certified trick-taking play core and server-authenticity controls are separate items in this gate and must be certified before game integrity can be GREEN.
+The outcome digest is a tamper-evident commitment, not by itself proof that a malicious server generated a fair deal. Shuffle entropy, deal generation, remaining setup phases and server-authenticity controls are separate items in this gate and must be certified before game integrity can be GREEN.
 
 ## Launch boundary
 
