@@ -52,7 +52,7 @@ test('100,000-frame abuse/load simulation enforces the configured window', () =>
   let denied = 0;
   for (let i = 0; i < 100_000; i += 1) {
     const subject = i % 250;
-    const c = i % 4;
+    const c = Math.floor(i / 250) % 4;
     const connectionId = `conn-${subject}-${c}-0000`;
     const result = guard.inspectFrame({ connectionId, bytes: 64, now: 0 });
     if (result.allowed) {
