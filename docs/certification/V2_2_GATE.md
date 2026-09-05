@@ -1,6 +1,6 @@
 # v2.2 — Game Outcome Integrity & Hidden-State Isolation Gate
 
-Status: **AMBER — five trick games plus Sweep/Seep server-rule core implemented**
+Status: **AMBER — five trick games, Sweep/Seep and 21-Card Marriage server-rule cores implemented**
 
 This gate ensures that the Game Core produces tamper-evident, deterministic outcomes while preventing one player, spectator or generic public channel from receiving another player's hidden state. Financial settlement may bind only to an authoritative game outcome digest persisted by Game Core.
 
@@ -20,7 +20,7 @@ This gate ensures that the Game Core produces tamper-evident, deterministic outc
   - [x] Reusable trick-taking play core plus standard setup/match rule modules for Spades, Hearts, 29, Court Piece and Dehla Pakad.
   - [x] 2,500 deterministic complete-hand simulations across the five trick-taking rule packs.
   - [x] 100-point standard Sweep/Seep opening bid, exact deal, loose capture, house build/break/cement/capture, sweep scoring and Baazi progression.
-  - [ ] 21-Card Marriage legal-transition engine.
+  - [x] 21-Card Marriage exact three-deck custody, draw/discard turns, Open/Hidden Maal isolation, pure/Dublee qualification, Joker restrictions, meld validation and approved bonus scoring.
   - [ ] Poker legal-transition engine.
   - [ ] Teen Patti legal-transition engine.
 - [ ] Cryptographically unpredictable shuffle/deal evidence with deterministic audit reconstruction after disclosure.
@@ -35,6 +35,8 @@ The trick-taking family is server-authoritative for exact deck ownership, turn o
 
 Sweep/Seep uses the northern Indian 100-point baseline: the opening four floor cards stay hidden until dealer-right makes a valid 9–13 bid backed by their first four cards; the remaining deal must complete the exact deck. Server actions implement mandatory loose/house capture, ordinary and cemented houses, breaking, retained capture-card obligations, sweep bonuses, end-floor custody and conserved 100-point base scoring. Variant rules are isolated rather than mixed into the baseline.
 
+21-Card Marriage uses the owner-approved rule pack: Open or Hidden Maal is immutable at table start; hidden Maal is unlocked per seat only after three valid pure melds or seven valid Dublees; printed Jokers score one and may substitute only in impure melds; seven Dublees qualify and eight meet the Dublee finish threshold; Maal, Marriage and Tunnela scoring is deterministic and server-computed. Public and opponent projections never receive another seat's hand or hidden Maal access.
+
 ## Persisted commitment boundary
 
 `game_outcomes` is append-only and serializes one digest chain per tenant/table. Exact hand replay is idempotent; changed metadata for the same hand, sequence gaps, wrong previous digests, updates and deletes fail closed. Only commitment metadata is persisted in this slice; raw hidden state is deliberately not copied into the database by this mechanism.
@@ -43,7 +45,7 @@ The Financial Integrity Controller no longer accepts a free-form `outcomeDigest`
 
 ## Security boundary
 
-The outcome digest is a tamper-evident commitment, not by itself proof that a malicious server generated a fair deal. Shuffle entropy, deal generation, the remaining three game families and server-authenticity controls are separate items in this gate and must be certified before game integrity can be GREEN.
+The outcome digest is a tamper-evident commitment, not by itself proof that a malicious server generated a fair deal. Shuffle entropy, deal generation fairness, Poker/Teen Patti legality and server-authenticity controls are separate items in this gate and must be certified before game integrity can be GREEN.
 
 ## Launch boundary
 
