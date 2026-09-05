@@ -1,5 +1,5 @@
 import { formatSignedMinor, parseUnsignedMinor } from './minor-units.js';
-import { settlementDigest, validateEpoch, validateIdentity } from './settlement-common.js';
+import { settlementDigest, validateEpoch, validateIdentity, validateSha256Digest } from './settlement-common.js';
 
 export function computePrimarySettlement(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('settlement:invalid_input');
@@ -7,6 +7,7 @@ export function computePrimarySettlement(input) {
   const tableId = validateIdentity(input.tableId, 'tableId');
   const handId = validateIdentity(input.handId, 'handId');
   const epoch = validateEpoch(input.epoch);
+  const outcomeDigest = validateSha256Digest(input.outcomeDigest, 'outcomeDigest');
   if (!Array.isArray(input.participants) || input.participants.length < 2 || input.participants.length > 64) {
     throw new Error('participants:invalid_count');
   }
@@ -28,6 +29,6 @@ export function computePrimarySettlement(input) {
   }).sort((a, b) => a.accountId.localeCompare(b.accountId));
 
   if (net !== 0n) throw new Error('settlement:value_not_conserved');
-  const digest = settlementDigest({ tenantId, tableId, handId, epoch, allocations });
-  return Object.freeze({ tenantId, tableId, handId, epoch, allocations, digest });
+  const digest = settlementDigest({ tenantId, tableId, handId, epoch, outcomeDigest, allocations });
+  return Object.freeze({ tenantId, tableId, handId, epoch, outcomeDigest, allocations, digest });
 }

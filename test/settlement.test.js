@@ -10,6 +10,7 @@ function fixture() {
     tableId: 'table-7',
     handId: 'hand-00000001',
     epoch: 42,
+    outcomeDigest: 'a'.repeat(64),
     participants: [
       { accountId: 'player:bob', openingMinor: '7000', closingMinor: '5000' },
       { accountId: 'player:alice', openingMinor: '3000', closingMinor: '5000' },
@@ -22,6 +23,7 @@ test('primary and shadow agree on a balanced settlement', () => {
   const primary = computePrimarySettlement(input);
   const shadow = computeShadowSettlement(input);
   assert.deepEqual(primary, shadow);
+  assert.equal(primary.outcomeDigest, input.outcomeDigest);
   assert.equal(primary.allocations[0].accountId, 'player:alice');
   assert.equal(primary.allocations[0].deltaMinor, '2000');
   assert.equal(primary.allocations[1].deltaMinor, '-2000');
@@ -34,6 +36,20 @@ test('participant order cannot change canonical settlement digest', () => {
   const b = computePrimarySettlement(bInput);
   assert.equal(a.digest, b.digest);
   assert.deepEqual(a.allocations, b.allocations);
+});
+
+test('immutable game outcome digest is bound into the settlement digest', () => {
+  const a = computePrimarySettlement(fixture());
+  const bInput = fixture();
+  bInput.outcomeDigest = 'b'.repeat(64);
+  const b = computePrimarySettlement(bInput);
+  assert.notEqual(a.digest, b.digest);
+});
+
+test('malformed outcome digest is rejected', () => {
+  const input = fixture();
+  input.outcomeDigest = 'not-a-digest';
+  assert.throws(() => verifyDualSettlement(input), /outcomeDigest:invalid_sha256/);
 });
 
 test('value creation or destruction is rejected', () => {
@@ -79,6 +95,11 @@ test('shadow disagreement blocks settlement', () => {
   assert.throws(() => verifyDualSettlement(fixture(), { shadow: maliciousShadow }), /shadow_mismatch/);
 });
 
+test('shadow outcome substitution blocks settlement', () => {
+  const maliciousShadow = input => ({ ...computeShadowSettlement(input), outcomeDigest: 'f'.repeat(64) });
+  assert.throws(() => verifyDualSettlement(fixture(), { shadow: maliciousShadow }), /shadow_mismatch/);
+});
+
 test('10,000 deterministic conserved settlements agree across independent implementations', () => {
   let state = 0x5eed1234;
   const rand = max => {
@@ -106,6 +127,7 @@ test('10,000 deterministic conserved settlements agree across independent implem
       tableId: `table-${caseNo % 101}`,
       handId: `hand-${caseNo}`,
       epoch: caseNo,
+      outcomeDigest: (caseNo + 1).toString(16).padStart(64, '0'),
       participants: stacks.map((opening, i) => ({
         accountId: `player:${i}`,
         openingMinor: opening.toString(),

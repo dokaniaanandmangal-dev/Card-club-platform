@@ -21,11 +21,12 @@ export function verifyDualSettlement(input, {
     || primaryResult.tableId !== shadowResult.tableId
     || primaryResult.handId !== shadowResult.handId
     || primaryResult.epoch !== shadowResult.epoch
+    || primaryResult.outcomeDigest !== shadowResult.outcomeDigest
     || primaryResult.digest !== shadowResult.digest
     || !identicalAllocations(primaryResult.allocations, shadowResult.allocations)
   ) {
     throw new Error('settlement:shadow_mismatch');
   }
 
-  return Object.freeze({ ...primaryResult, verifiedByShadow: true });
+  return Object.freeze({ ...primaryResult, verifiedByShadow: true, verificationScheme: 'dual-v1' });
 }
