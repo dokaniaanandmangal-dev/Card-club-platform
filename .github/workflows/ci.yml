@@ -43,6 +43,11 @@ jobs:
       - name: Verify SBOM is non-empty
         run: test -s sbom.cdx.json
 
+      - name: Validate digest-only deployment policy
+        run: |
+          node scripts/verify-image-ref.mjs "ghcr.io/example/card-club@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" >/dev/null
+          if node scripts/verify-image-ref.mjs "ghcr.io/example/card-club:latest"; then exit 1; fi
+
   postgres-ledger:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -67,3 +72,35 @@ jobs:
 
       - name: Replay, fencing, isolation and append-only evidence
         run: docker exec -i "${{ job.services.postgres.id }}" psql -v ON_ERROR_STOP=1 -U postgres -d postgres < test/postgres-ledger.sql
+
+  container-hardening:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Build runtime image
+        run: docker build --pull --tag card-club-certification:test .
+
+      - name: Run with production hardening controls
+        run: |
+          cid=$(docker run -d \
+            --read-only \
+            --cap-drop=ALL \
+            --security-opt=no-new-privileges \
+            --tmpfs /tmp:rw,noexec,nosuid,size=16m \
+            -p 127.0.0.1:18080:8080 \
+            card-club-certification:test)
+          trap 'docker rm -f "$cid" >/dev/null 2>&1 || true' EXIT
+          for i in $(seq 1 20); do
+            if curl --fail --silent http://127.0.0.1:18080/healthz | grep -q '"ok":true'; then break; fi
+            sleep 0.5
+          done
+          curl --fail --silent http://127.0.0.1:18080/healthz | grep -q '"ok":true'
+          test "$(docker inspect --format '{{.Config.User}}' "$cid")" = "node"
+          test "$(docker inspect --format '{{.HostConfig.ReadonlyRootfs}}' "$cid")" = "true"
+          docker inspect --format '{{json .HostConfig.CapDrop}}' "$cid" | grep -q 'ALL'
+          docker inspect --format '{{json .HostConfig.SecurityOpt}}' "$cid" | grep -q 'no-new-privileges'

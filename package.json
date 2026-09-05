@@ -8,6 +8,7 @@
     "node": ">=22 <23"
   },
   "scripts": {
+    "start": "node src/server.js",
     "test": "node --test",
     "check:lock": "node scripts/check-lockfile.mjs",
     "check:secrets": "node scripts/check-secrets.mjs",
