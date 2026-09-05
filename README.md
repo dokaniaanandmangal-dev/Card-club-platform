@@ -8,6 +8,10 @@ Security-first online card club platform. The repository is being rebuilt into t
 
 Real-money operation is disabled and must remain disabled until all required certification gates are GREEN and explicit owner launch authorization is recorded.
 
+## Canonical project record
+
+Owner-approved product, game, revenue, infrastructure and governance decisions consolidated from project discussions are maintained in [`docs/PROJECT_CANONICAL.md`](docs/PROJECT_CANONICAL.md). Superseded proposals and temporary operational chatter listed there must not be treated as active requirements.
+
 ## Locked architectural direction
 
 The platform is organized around five cooperating cores:
