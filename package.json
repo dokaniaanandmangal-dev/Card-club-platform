@@ -1,0 +1,16 @@
+{
+  "name": "card-club-platform",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Security-first online card club platform certification baseline",
+  "type": "module",
+  "engines": {
+    "node": ">=22 <23"
+  },
+  "scripts": {
+    "test": "node --test",
+    "check:lock": "node scripts/check-lockfile.mjs",
+    "check:secrets": "node scripts/check-secrets.mjs",
+    "check": "npm run check:lock && npm run check:secrets && npm test"
+  }
+}
