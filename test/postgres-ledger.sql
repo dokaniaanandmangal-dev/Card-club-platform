@@ -119,7 +119,7 @@ BEGIN
     RAISE EXCEPTION 'unexpected_transaction_count:%', v_count;
   END IF;
 
-  SELECT COALESCE(sum(amount_minor), 0) INTO v_sum
+  SELECT COALESCE(sum(e.amount_minor), 0) INTO v_sum
   FROM ledger_entries e
   JOIN ledger_transactions t ON t.id = e.transaction_id
   WHERE t.tenant_id = 'club-a';
