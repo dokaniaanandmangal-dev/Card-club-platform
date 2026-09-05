@@ -1,6 +1,6 @@
 # v2.2 — Game Outcome Integrity & Hidden-State Isolation Gate
 
-Status: **AMBER — outcome persistence, financial binding and trick-game legality advancing**
+Status: **AMBER — all five trick-game standard rule modules implemented; remaining game families pending**
 
 This gate ensures that the Game Core produces tamper-evident, deterministic outcomes while preventing one player, spectator or generic public channel from receiving another player's hidden state. Financial settlement may bind only to an authoritative game outcome digest persisted by Game Core.
 
@@ -22,7 +22,8 @@ This gate ensures that the Game Core produces tamper-evident, deterministic outc
   - [x] Standard Spades ordered bidding and deterministic contract/bag/nil scoring.
   - [x] Standard Hearts simultaneous three-card pass cycle (left/right/across/none) and cumulative match scoring.
   - [x] Standard 29 first-four-card auction, forced-dealer minimum, high-bidder trump selection, exact second deal and Pair-adjusted contract result.
-  - [ ] Court Piece and Dehla Pakad setup/match progression modules.
+  - [x] Standard Court Piece 5+8 deal, dealer-right trump caller, deal/court streak scoring and dealer progression.
+  - [x] Dehla Pakad trustless announced-trump 5+8 setup, tens/Kot hand scoring, seven-hand Kot streak and dealer progression.
   - [ ] Marriage, Sweep, Poker and Teen Patti legal-transition engines.
 - [ ] Cryptographically unpredictable shuffle/deal evidence with deterministic audit reconstruction after disclosure.
 - [ ] Reconnect/resume projection tests proving hidden-state boundaries survive session recovery.
@@ -36,7 +37,9 @@ The shared play engine accepts only an exact authoritative deck permutation for 
 
 Spades bidding accepts exactly one ordered numeric bid from each seat and match scoring accounts for contracts, bags, sandbag penalties and nil. Hearts passing is a commit-before-reveal flow: each player selects three owned cards, no transfer is applied until all four submissions exist, and then the left/right/across/no-pass cycle is applied atomically. Hearts cumulative scoring consumes the authoritative hand summary and resolves the match when the target is reached.
 
-29 now preserves its information boundary: only the first four cards per player are present during the auction, the dealer is forced to the configured minimum when the first three players pass, bids must strictly increase, only the high bidder can choose trump, and the second deal must complete the exact 32-card deck. Pair adjusts the bidder contract by four within the configured bounds; the play engine still controls when hidden trump becomes revealed.
+29 preserves its information boundary: only the first four cards per player are present during the auction, the dealer is forced to the configured minimum when the first three players pass, bids must strictly increase, only the high bidder can choose trump, and the second deal must complete the exact 32-card deck. Pair adjusts the bidder contract by four within the configured bounds; Pair declaration timing remains a later play-state control.
+
+Court Piece and Dehla Pakad share a fail-closed five-card trump setup. The dealer first distributes five cards to every seat; only the dealer-right caller may select the announced trump, and the remaining eight cards per seat are accepted only when the full result is an exact 52-card deck. Seat projections expose only the viewer's own first five cards. Court Piece tracks majority deals, first-seven courts, seven-deal courts, 52-courts and the standard losing-team dealer progression. Dehla Pakad uses the online-safe announced-trump method rather than the honesty-dependent dynamic trump method, and tracks tens, four-ten Kots, seven-hand Kots and dealer progression.
 
 ## Persisted commitment boundary
 
@@ -46,7 +49,7 @@ The Financial Integrity Controller no longer accepts a free-form `outcomeDigest`
 
 ## Security boundary
 
-The outcome digest is a tamper-evident commitment, not by itself proof that a malicious server generated a fair deal. Shuffle entropy, deal generation, remaining setup phases and server-authenticity controls are separate items in this gate and must be certified before game integrity can be GREEN.
+The outcome digest is a tamper-evident commitment, not by itself proof that a malicious server generated a fair deal. Shuffle entropy, deal generation, the remaining four game families and server-authenticity controls are separate items in this gate and must be certified before game integrity can be GREEN.
 
 ## Launch boundary
 
