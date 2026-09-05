@@ -1,6 +1,6 @@
 # v2.2 — Game Outcome Integrity & Hidden-State Isolation Gate
 
-Status: **AMBER — server-rule cores implemented for all nine approved games; fairness/recovery/stress controls remain**
+Status: **AMBER — all nine server-rule cores complete; fair-shuffle primitive added; recovery/stress/controller integration remain**
 
 This gate ensures that the Game Core produces tamper-evident, deterministic outcomes while preventing one player, spectator or generic public channel from receiving another player's hidden state. Financial settlement may bind only to an authoritative game outcome digest persisted by Game Core.
 
@@ -24,6 +24,13 @@ This gate ensures that the Game Core produces tamper-evident, deterministic outc
   - [x] No-Limit Texas Hold'em blinds, betting streets, raise/reopen rules, all-in runout, best-five ranking, side pots and hidden-hole-card isolation.
   - [x] Classic Teen Patti blind/seen play, chaal ranges, pack, paid seen-to-seen sideshow, showdown, exact ranking and hidden-card isolation.
 - [ ] Cryptographically unpredictable shuffle/deal evidence with deterministic audit reconstruction after disclosure.
+  - [x] Domain-separated server/participant seed commitments bound to tenant/table/hand/game context.
+  - [x] Canonically ordered commitment manifest with tamper-evident manifest digest.
+  - [x] HMAC-SHA256 deterministic stream plus rejection-sampled Fisher-Yates shuffle to avoid modulo bias.
+  - [x] Post-hand disclosure reconstructs exact card order and verifies manifest/deck digests; tampering fails closed.
+  - [x] Runtime server seeds use Node cryptographic randomness; one changed participant seed changes the final deck.
+  - [ ] Table orchestrator must persist the commitment manifest before seed reveals and route only the finalized audited deck into every game core.
+  - [ ] Abort events after manifest commitment must be durably recorded and surfaced to Game Integrity controls to detect selective-abort bias.
 - [ ] Reconnect/resume projection tests proving hidden-state boundaries survive session recovery.
 - [ ] Spectator/delayed-observer projection policy.
 - [ ] Multi-table and multi-tenant isolation stress corpus.
@@ -41,6 +48,10 @@ No-Limit Texas Hold'em is server-authoritative for blind positions, betting orde
 
 Classic Teen Patti uses the approved baseline ranking Trail > Pure Sequence > Sequence > Color > Pair > High Card, with A-K-Q highest and A-2-3 second-highest sequence. Blind and seen chaal ranges are computed from server state; only seen players may request a paid sideshow against the previous active seen player; ties pack the requester; showdown is server-resolved and only showdown hands are publicly revealed. Pack and sideshow do not leak hidden cards.
 
+## Fair-shuffle boundary
+
+The fair-shuffle primitive uses a server commitment plus participant commitments that are bound to the exact tenant, table, hand and game. After commitments are fixed, revealed seeds are combined deterministically and drive an HMAC-SHA256 rejection-sampled Fisher-Yates shuffle. The live public receipt contains commitments and deck digest but no seeds. After the hand, disclosure of all seeds reconstructs the exact card order and detects any changed seed, manifest, digest or order. This reduces unilateral deck manipulation when at least one committed participant contribution is unpredictable, but it does not by itself prevent a server from aborting after seeing valid reveals; committed-abort evidence therefore remains a mandatory orchestration/control item.
+
 ## Persisted commitment boundary
 
 `game_outcomes` is append-only and serializes one digest chain per tenant/table. Exact hand replay is idempotent; changed metadata for the same hand, sequence gaps, wrong previous digests, updates and deletes fail closed. Only commitment metadata is persisted in this slice; raw hidden state is deliberately not copied into the database by this mechanism.
@@ -49,7 +60,7 @@ The Financial Integrity Controller no longer accepts a free-form `outcomeDigest`
 
 ## Security boundary
 
-The outcome digest is a tamper-evident commitment, not by itself proof that a malicious server generated a fair deal. Shuffle entropy, auditable deal generation, reconnect/spectator policy, multi-tenant stress and the full Game Integrity Controller remain separate mandatory controls before game integrity can be GREEN.
+The outcome digest and fair-shuffle receipt are tamper-evident evidence, not a substitute for table orchestration. Manifest-before-reveal persistence, selective-abort tracking, reconnect/spectator policy, multi-tenant stress and the full Game Integrity Controller remain mandatory before game integrity can be GREEN.
 
 ## Revenue boundary
 
