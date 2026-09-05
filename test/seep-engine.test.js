@@ -17,17 +17,25 @@ const floorCards = ['5D', '3H', 'AS', '10D'];
 
 function makeRemaining(required = {}) {
   const initial = new Set([...bidderHand, ...floorCards]);
-  let pool = SEEP_DECK.filter(card => !initial.has(card));
+  const pool = SEEP_DECK.filter(card => !initial.has(card));
   const sizes = [12, 12, 12, 8];
-  const hands = players.map((id, index) => {
-    const forced = [...(required[id] ?? [])];
-    for (const card of forced) {
+  const forcedByPlayer = Object.fromEntries(players.map(id => [id, [...(required[id] ?? [])]]));
+
+  // Reserve every forced fixture card before any arbitrary filler is assigned.
+  // Otherwise an earlier hand can consume a card required by a later hand.
+  for (const id of players) {
+    for (const card of forcedByPlayer[id]) {
       const position = pool.indexOf(card);
       if (position < 0) throw new Error(`fixture duplicate/missing ${card}`);
       pool.splice(position, 1);
     }
-    while (forced.length < sizes[index]) forced.push(pool.shift());
-    return forced;
+  }
+
+  const hands = players.map((id, index) => {
+    const cards = [...forcedByPlayer[id]];
+    if (cards.length > sizes[index]) throw new Error(`fixture too many forced cards for ${id}`);
+    while (cards.length < sizes[index]) cards.push(pool.shift());
+    return cards;
   });
   assert.equal(pool.length, 0);
   return hands;
@@ -66,7 +74,7 @@ test('opening floor is hidden until a valid 9-13 bid backed by bidder hand', () 
   assert.throws(() => submitSeepBid(state, { playerId: 'p0', bid: 9 }), /only_bidder/);
   assert.throws(() => submitSeepBid(state, { playerId: 'p3', bid: 12 }), /bid_card_required/);
   state = submitSeepBid(state, { playerId: 'p3', bid: 9 });
-  assert.deepEqual(state.floorLoose.sort(), [...floorCards].sort());
+  assert.deepEqual([...state.floorLoose].sort(), [...floorCards].sort());
   assert.equal(state.floorHidden.length, 0);
 });
 
@@ -107,7 +115,6 @@ test('house capture, rebuild, break and cement are server-authoritative', () => 
 
   state = playSeepTurn(state, { playerId: 'p2', action: { type: 'capture', card: 'QS', houseIds: ['h2'], looseGroups: [] } });
   assert.equal(state.houses.length, 0);
-  return state;
 });
 
 test('matching loose capture is mandatory and clearing the floor mid-hand scores a 50-point sweep', () => {
@@ -117,7 +124,7 @@ test('matching loose capture is mandatory and clearing the floor mid-hand scores
   state = playSeepTurn(state, { playerId: 'p0', action: { type: 'break', card: '3C', houseId: 'h2', newValue: 12 } });
   state = playSeepTurn(state, { playerId: 'p3', action: { type: 'cement', card: 'QC', houseId: 'h2', looseCards: [] } });
   state = playSeepTurn(state, { playerId: 'p2', action: { type: 'capture', card: 'QS', houseIds: ['h2'], looseGroups: [] } });
-  assert.deepEqual(state.floorLoose.sort(), ['10D', 'AS'].sort());
+  assert.deepEqual([...state.floorLoose].sort(), ['10D', 'AS'].sort());
   assert.throws(() => playSeepTurn(state, { playerId: 'p1', action: { type: 'throw', card: 'JH' } }), /capture_required/);
   state = playSeepTurn(state, { playerId: 'p1', action: { type: 'capture', card: 'JH', houseIds: [], looseGroups: [['AS', '10D']] } });
   assert.equal(state.floorLoose.length, 0);
