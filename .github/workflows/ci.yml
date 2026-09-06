@@ -76,6 +76,8 @@ jobs:
         run: docker exec -i "${{ job.services.postgres.id }}" psql -v ON_ERROR_STOP=1 -U postgres -d postgres < db/003_settlement_commit.sql
       - name: Apply game-outcome commitment schema
         run: docker exec -i "${{ job.services.postgres.id }}" psql -v ON_ERROR_STOP=1 -U postgres -d postgres < db/004_game_outcomes.sql
+      - name: Apply fair-shuffle audit schema
+        run: docker exec -i "${{ job.services.postgres.id }}" psql -v ON_ERROR_STOP=1 -U postgres -d postgres < db/005_shuffle_audit.sql
       - name: Replay, fencing, isolation and append-only evidence
         run: docker exec -i "${{ job.services.postgres.id }}" psql -v ON_ERROR_STOP=1 -U postgres -d postgres < test/postgres-ledger.sql
       - name: Settlement receipt idempotency and outcome-binding evidence
@@ -84,10 +86,16 @@ jobs:
         run: docker exec -i "${{ job.services.postgres.id }}" psql -v ON_ERROR_STOP=1 -U postgres -d postgres < test/postgres-settlement-commit.sql
       - name: Game outcome append-only, idempotency and chain evidence
         run: docker exec -i "${{ job.services.postgres.id }}" psql -v ON_ERROR_STOP=1 -U postgres -d postgres < test/postgres-game-outcome.sql
+      - name: Fair-shuffle manifest, abort and append-only evidence
+        run: docker exec -i "${{ job.services.postgres.id }}" psql -v ON_ERROR_STOP=1 -U postgres -d postgres < test/postgres-shuffle-audit.sql
       - name: Production-style Game-to-Financial PostgreSQL binding evidence
         env:
           PG_INTEGRATION_URL: postgresql://postgres:certification-only@127.0.0.1:5432/postgres
         run: node --test test/postgres-adapter.integration.test.js
+      - name: Production-style audited-shuffle PostgreSQL routing evidence
+        env:
+          PG_INTEGRATION_URL: postgresql://postgres:certification-only@127.0.0.1:5432/postgres
+        run: node --test test/postgres-shuffle-adapter.integration.test.js
 
   migration-rollback:
     runs-on: ubuntu-24.04
