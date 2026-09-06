@@ -1,6 +1,6 @@
 # v2.2 — Game Outcome Integrity & Hidden-State Isolation Gate
 
-Status: **AMBER — game cores, persisted fair shuffle and reconnect isolation complete; spectator/stress/controller integration remain**
+Status: **AMBER — game cores, persisted fair shuffle, reconnect and delayed-spectator isolation complete; stress/controller integration remain**
 
 This gate ensures that the Game Core produces tamper-evident, deterministic outcomes while preventing one player, spectator or generic public channel from receiving another player's hidden state. Financial settlement may bind only to an authoritative game outcome digest persisted by Game Core.
 
@@ -34,7 +34,7 @@ This gate ensures that the Game Core produces tamper-evident, deterministic outc
   - [x] Abort events after manifest commitment are append-only, terminal for deck issuance and replay-safe, providing selective-abort evidence.
   - [x] Disclosure evidence is verified before a disclosure digest is appended; live audit tables deliberately persist no plaintext reveal seeds.
 - [x] Reconnect/resume projection tests proving hidden-state boundaries survive session recovery.
-- [ ] Spectator/delayed-observer projection policy.
+- [x] Spectator/delayed-observer projection policy.
 - [ ] Multi-table and multi-tenant isolation stress corpus.
 - [ ] Game Integrity Controller end-to-end certification.
 
@@ -58,9 +58,15 @@ A post-commit abort is an append-only terminal audit event and prevents later de
 
 ## Reconnect/resume boundary
 
-Reconnect recovery now re-projects the current authoritative state through the existing game-specific player projector rather than serializing an authoritative snapshot back to the client. The viewer is derived only from the authenticated session player identity; caller-provided seat or viewer hints have no authority. Exact tenant and table binding rejects cross-scope recovery, while a per-player membership version invalidates stale sessions after leave/reseat events. Game substitution, removed-player recovery and authoritative-state mismatch fail closed.
+Reconnect recovery re-projects the current authoritative state through the existing game-specific player projector rather than serializing an authoritative snapshot back to the client. The viewer is derived only from the authenticated session player identity; caller-provided seat or viewer hints have no authority. Exact tenant and table binding rejects cross-scope recovery, while a per-player membership version invalidates stale sessions after leave/reseat events. Game substitution, removed-player recovery and authoritative-state mismatch fail closed.
 
 The reconnect certification corpus exercises both sides of the hidden-state boundary across all nine supported game identifiers. It executes 9,216 deterministic player reconnect projections and proves that each reconnecting player receives their own hidden state while the opponent secret remains absent. Negative evidence covers seat/viewer spoof hints, cross-tenant and cross-table attempts, stale membership versions, game substitution and removed-player recovery. Returned resume envelopes are recursively frozen and never contain the authoritative state object.
+
+## Spectator/delayed-observer boundary
+
+Spectator delivery is a separate public-only projection boundary. Each snapshot is converted through the existing game-specific public projector at ingest, so authoritative state and private player state are discarded before entering the delay buffer. A certified spectator stream requires at least a 30-second delay; shorter delays fail closed. The buffer is bound to one tenant, table and game and rejects game substitution, non-monotonic state versions, clock rollback and capacity overflow.
+
+The spectator certification corpus executes 4,608 deterministic delayed projections across all nine supported game identifiers. It proves that live Hold'em and Teen Patti cards, Marriage hands/hidden Maal/stock, Seep hands/hidden floor cards and trick-game hands do not appear in spectator output. Boundary tests prove that no snapshot is released before the full delay and that a newer in-delay state cannot overtake the newest eligible snapshot.
 
 ## Persisted commitment boundary
 
@@ -72,7 +78,7 @@ The Financial Integrity Controller no longer accepts a free-form `outcomeDigest`
 
 ## Security boundary
 
-The outcome digest and fair-shuffle audit evidence cover authoritative game results, commitment/reveal shuffle construction, manifest-before-reveal persistence, audited-deck-only routing and selective-abort tracking. Reconnect recovery now adds authenticated viewer derivation, tenant/table binding, stale-membership invalidation and deterministic cross-game hidden-state evidence. Remaining v2.2 security work is spectator policy, multi-table/multi-tenant stress and the full Game Integrity Controller end-to-end certification.
+The outcome digest and fair-shuffle audit evidence cover authoritative game results, commitment/reveal shuffle construction, manifest-before-reveal persistence, audited-deck-only routing and selective-abort tracking. Reconnect recovery adds authenticated viewer derivation, tenant/table binding and stale-membership invalidation. Spectator delivery is public-only at ingest and delayed at least 30 seconds. Remaining v2.2 security work is multi-table/multi-tenant stress and the full Game Integrity Controller end-to-end certification.
 
 ## Revenue boundary
 
