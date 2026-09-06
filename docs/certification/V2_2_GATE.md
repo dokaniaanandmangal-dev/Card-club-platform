@@ -1,6 +1,6 @@
 # v2.2 — Game Outcome Integrity & Hidden-State Isolation Gate
 
-Status: **AMBER — all nine server-rule cores and persisted fair-shuffle orchestration complete; recovery/stress/controller integration remain**
+Status: **AMBER — game cores, persisted fair shuffle and reconnect isolation complete; spectator/stress/controller integration remain**
 
 This gate ensures that the Game Core produces tamper-evident, deterministic outcomes while preventing one player, spectator or generic public channel from receiving another player's hidden state. Financial settlement may bind only to an authoritative game outcome digest persisted by Game Core.
 
@@ -33,7 +33,7 @@ This gate ensures that the Game Core produces tamper-evident, deterministic outc
   - [x] Deck digest is durably recorded before routing; database failure fails closed and exposes no routable deck.
   - [x] Abort events after manifest commitment are append-only, terminal for deck issuance and replay-safe, providing selective-abort evidence.
   - [x] Disclosure evidence is verified before a disclosure digest is appended; live audit tables deliberately persist no plaintext reveal seeds.
-- [ ] Reconnect/resume projection tests proving hidden-state boundaries survive session recovery.
+- [x] Reconnect/resume projection tests proving hidden-state boundaries survive session recovery.
 - [ ] Spectator/delayed-observer projection policy.
 - [ ] Multi-table and multi-tenant isolation stress corpus.
 - [ ] Game Integrity Controller end-to-end certification.
@@ -56,6 +56,12 @@ The fair-shuffle subsystem now has both a cryptographic primitive and a persiste
 
 A post-commit abort is an append-only terminal audit event and prevents later deck issuance for that manifest. Once a deck is issued, the same hand cannot be relabelled as aborted. After the hand, disclosure is cryptographically reconstructed and verified before a disclosure digest is appended. The audit database intentionally stores commitments/digests and lifecycle evidence, not plaintext live seed reveals.
 
+## Reconnect/resume boundary
+
+Reconnect recovery now re-projects the current authoritative state through the existing game-specific player projector rather than serializing an authoritative snapshot back to the client. The viewer is derived only from the authenticated session player identity; caller-provided seat or viewer hints have no authority. Exact tenant and table binding rejects cross-scope recovery, while a per-player membership version invalidates stale sessions after leave/reseat events. Game substitution, removed-player recovery and authoritative-state mismatch fail closed.
+
+The reconnect certification corpus exercises both sides of the hidden-state boundary across all nine supported game identifiers. It executes 9,216 deterministic player reconnect projections and proves that each reconnecting player receives their own hidden state while the opponent secret remains absent. Negative evidence covers seat/viewer spoof hints, cross-tenant and cross-table attempts, stale membership versions, game substitution and removed-player recovery. Returned resume envelopes are recursively frozen and never contain the authoritative state object.
+
 ## Persisted commitment boundary
 
 `game_outcomes` is append-only and serializes one digest chain per tenant/table. Exact hand replay is idempotent; changed metadata for the same hand, sequence gaps, wrong previous digests, updates and deletes fail closed. Only commitment metadata is persisted in this slice; raw hidden state is deliberately not copied into the database by this mechanism.
@@ -66,7 +72,7 @@ The Financial Integrity Controller no longer accepts a free-form `outcomeDigest`
 
 ## Security boundary
 
-The outcome digest and fair-shuffle audit evidence now cover authoritative game results, commitment/reveal shuffle construction, manifest-before-reveal persistence, audited-deck-only routing and selective-abort tracking. Remaining v2.2 security work is reconnect/resume hidden-state isolation, spectator policy, multi-table/multi-tenant stress and the full Game Integrity Controller end-to-end certification.
+The outcome digest and fair-shuffle audit evidence cover authoritative game results, commitment/reveal shuffle construction, manifest-before-reveal persistence, audited-deck-only routing and selective-abort tracking. Reconnect recovery now adds authenticated viewer derivation, tenant/table binding, stale-membership invalidation and deterministic cross-game hidden-state evidence. Remaining v2.2 security work is spectator policy, multi-table/multi-tenant stress and the full Game Integrity Controller end-to-end certification.
 
 ## Revenue boundary
 
