@@ -8,6 +8,7 @@ import {
 
 const SESSIONS = new WeakSet();
 const ISSUED_DECKS = new WeakSet();
+const ROUTED_DECKS = new WeakSet();
 const HEX_32 = /^[0-9a-f]{64}$/;
 
 function deepFreeze(value) {
@@ -143,7 +144,6 @@ export async function issueAuditedDeck(session, { serverSeed, participantSeeds }
     participantSeeds,
   });
 
-  // Persist the exact deck digest before any game consumer can receive the deck.
   const persisted = await active.persistence.recordDeckIssued({
     ...auditContext(active.manifest),
     deckDigest: finalized.publicReceipt.deckDigest,
@@ -205,9 +205,19 @@ export function routeAuditedDeck(issuedDeck, consumer) {
     throw new Error('shuffle_orchestrator:unaudited_deck_rejected');
   }
   if (typeof consumer !== 'function') throw new Error('shuffle_orchestrator:consumer_required');
+  if (ROUTED_DECKS.has(issuedDeck)) throw new Error('shuffle_orchestrator:deck_already_routed');
+
+  // Single-use fail-closed routing prevents one audited deck from forking into
+  // multiple game branches. The deck is burned before invoking the consumer;
+  // if the consumer fails, the hand must be restarted with a new audited deck.
+  ROUTED_DECKS.add(issuedDeck);
   return consumer(deepFreeze(structuredClone(issuedDeck.deck)), issuedDeck.auditReceipt, issuedDeck.publicReceipt);
 }
 
 export function isAuditedDeck(issuedDeck) {
   return Boolean(issuedDeck && typeof issuedDeck === 'object' && ISSUED_DECKS.has(issuedDeck));
+}
+
+export function isRoutedAuditedDeck(issuedDeck) {
+  return Boolean(issuedDeck && typeof issuedDeck === 'object' && ROUTED_DECKS.has(issuedDeck));
 }
