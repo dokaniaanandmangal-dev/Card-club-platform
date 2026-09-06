@@ -1,4 +1,8 @@
+import { createHash } from 'node:crypto';
+
 import { executeFinancialIntegritySettlement } from '../financial/financial-integrity-controller.js';
+import { parseUnsignedMinor } from '../financial/minor-units.js';
+import { validateIdentity } from '../financial/settlement-common.js';
 import { createAuthoritativeOutcome } from './outcome.js';
 import { isAuditedDeck, isRoutedAuditedDeck, routeAuditedDeck } from './shuffle-orchestrator.js';
 
@@ -45,7 +49,53 @@ function assertScopeMatchesAudit(outcomeInput, receipt) {
   }
 }
 
-function buildBoundOutcome(outcomeInput, receipt) {
+function canonicalSettlementParticipants(settlement) {
+  assertPlain(settlement, 'settlement');
+  for (const forbidden of ['tenantId', 'tableId', 'handId', 'epoch', 'outcomeDigest']) {
+    if (Object.prototype.hasOwnProperty.call(settlement, forbidden)) {
+      throw new Error(`game_integrity:settlement_${forbidden}_forbidden`);
+    }
+  }
+  if (!Array.isArray(settlement.participants) || settlement.participants.length < 2 || settlement.participants.length > 64) {
+    throw new Error('game_integrity:settlement_participants_required');
+  }
+
+  const seen = new Set();
+  const canonical = settlement.participants.map((participant, index) => {
+    assertPlain(participant, `settlement_participant_${index}`);
+    const accountId = validateIdentity(participant.accountId, `participant_${index}.accountId`);
+    if (seen.has(accountId)) throw new Error('game_integrity:duplicate_settlement_account');
+    seen.add(accountId);
+    parseUnsignedMinor(participant.openingMinor, `participant_${index}.openingMinor`);
+    parseUnsignedMinor(participant.closingMinor, `participant_${index}.closingMinor`);
+    return {
+      accountId,
+      openingMinor: participant.openingMinor,
+      closingMinor: participant.closingMinor,
+    };
+  }).sort((left, right) => left.accountId.localeCompare(right.accountId));
+  return deepFreeze(canonical);
+}
+
+function settlementIntentDigest(participants) {
+  return createHash('sha256')
+    .update('card-club/game-integrity/settlement-intent/v1\n', 'utf8')
+    .update(JSON.stringify(participants), 'utf8')
+    .digest('hex');
+}
+
+function assertSettlementPlayersMatchOutcome(authoritative, participants) {
+  const outcomePlayers = authoritative.seats.map(seat => seat.playerId).sort();
+  const settlementPlayers = participants.map(participant => participant.accountId).sort();
+  if (
+    outcomePlayers.length !== settlementPlayers.length
+    || outcomePlayers.some((playerId, index) => playerId !== settlementPlayers[index])
+  ) {
+    throw new Error('game_integrity:settlement_players_mismatch');
+  }
+}
+
+function buildBoundOutcome(outcomeInput, receipt, settlementParticipants) {
   assertPlain(outcomeInput, 'outcome');
   if (Object.prototype.hasOwnProperty.call(outcomeInput, 'outcomeDigest')) {
     throw new Error('game_integrity:caller_outcome_digest_forbidden');
@@ -57,7 +107,7 @@ function buildBoundOutcome(outcomeInput, receipt) {
   }
   assertScopeMatchesAudit(outcomeInput, receipt);
 
-  return createAuthoritativeOutcome({
+  const authoritative = createAuthoritativeOutcome({
     ...outcomeInput,
     publicState: {
       ...structuredClone(publicState),
@@ -67,21 +117,13 @@ function buildBoundOutcome(outcomeInput, receipt) {
         shuffleManifestDigest: receipt.manifestDigest,
         canonicalDeckDigest: receipt.canonicalDeckDigest,
         shuffledDeckDigest: receipt.deckDigest,
+        settlementIntentDigest: settlementIntentDigest(settlementParticipants),
         routing: 'single-use-audited-deck',
       },
     },
   });
-}
-
-function assertSettlementInput(settlement) {
-  assertPlain(settlement, 'settlement');
-  for (const forbidden of ['tenantId', 'tableId', 'handId', 'epoch', 'outcomeDigest']) {
-    if (Object.prototype.hasOwnProperty.call(settlement, forbidden)) {
-      throw new Error(`game_integrity:settlement_${forbidden}_forbidden`);
-    }
-  }
-  if (!Array.isArray(settlement.participants)) throw new Error('game_integrity:settlement_participants_required');
-  return settlement;
+  assertSettlementPlayersMatchOutcome(authoritative, settlementParticipants);
+  return authoritative;
 }
 
 function assertPersistedOutcome(receipt, authoritative) {
@@ -110,8 +152,9 @@ export function routeGameIntegrityDeck(issuedDeck, consumer) {
 
 /**
  * Final certification boundary:
- * routed audited deck -> shuffle-bound authoritative outcome -> durable outcome
- * -> dual independent financial verification -> fenced atomic settlement commit.
+ * routed audited deck -> shuffle/settlement-bound authoritative outcome ->
+ * durable outcome -> dual independent financial verification -> fenced atomic
+ * settlement commit.
  */
 export async function finalizeGameIntegrityHand({ handToken, outcome, settlement } = {}, {
   outcomePersistence,
@@ -129,11 +172,11 @@ export async function finalizeGameIntegrityHand({ handToken, outcome, settlement
   const issuedDeck = HANDS.get(handToken);
   if (!isAuditedDeck(issuedDeck) || !isRoutedAuditedDeck(issuedDeck)) throw new Error('game_integrity:routed_audited_deck_required');
   const auditReceipt = assertAuditReceipt(issuedDeck.auditReceipt);
-  const settlementInput = assertSettlementInput(settlement);
-  const authoritative = buildBoundOutcome(outcome, auditReceipt);
+  const participants = canonicalSettlementParticipants(settlement);
+  const authoritative = buildBoundOutcome(outcome, auditReceipt, participants);
 
-  // Financial persistence is unreachable until the exact shuffle-bound outcome
-  // has been durably recorded. Changed retries are rejected by outcome storage.
+  // Financial persistence is unreachable until the exact shuffle- and
+  // settlement-intent-bound outcome has been durably recorded.
   const recorded = await persistence.record(authoritative);
   assertPersistedOutcome(recorded, authoritative);
 
@@ -142,7 +185,7 @@ export async function finalizeGameIntegrityHand({ handToken, outcome, settlement
     tableId: authoritative.tableId,
     handId: authoritative.handId,
     epoch: authoritative.epoch,
-    participants: structuredClone(settlementInput.participants),
+    participants: structuredClone(participants),
   });
   const options = {
     commit,
@@ -163,6 +206,7 @@ export async function finalizeGameIntegrityHand({ handToken, outcome, settlement
     gameId: auditReceipt.gameId,
     shuffleManifestDigest: auditReceipt.manifestDigest,
     shuffledDeckDigest: auditReceipt.deckDigest,
+    settlementIntentDigest: authoritative.publicState.gameIntegrity.settlementIntentDigest,
     outcomeDigest: authoritative.outcomeDigest,
     outcomePersistenceStatus: recorded.status,
     financialReceipt: structuredClone(financialReceipt),
