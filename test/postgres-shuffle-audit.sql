@@ -10,20 +10,20 @@ DECLARE
 BEGIN
   SELECT * INTO r FROM record_shuffle_manifest(
     'tenant-a','table-1','hand-abort','teen-patti',repeat('a',64),repeat('b',64),
-    participant_json,repeat('e',64),52
+    participant_json,repeat('e',64),52::smallint
   );
   IF r.status <> 'recorded' THEN RAISE EXCEPTION 'expected recorded manifest'; END IF;
 
   SELECT * INTO r FROM record_shuffle_manifest(
     'tenant-a','table-1','hand-abort','teen-patti',repeat('a',64),repeat('b',64),
-    participant_json,repeat('e',64),52
+    participant_json,repeat('e',64),52::smallint
   );
   IF r.status <> 'replay' THEN RAISE EXCEPTION 'expected manifest replay'; END IF;
 
   BEGIN
     PERFORM 1 FROM record_shuffle_manifest(
       'tenant-a','table-1','hand-abort','teen-patti',repeat('a',64),repeat('b',64),
-      participant_json,repeat('f',64),52
+      participant_json,repeat('f',64),52::smallint
     );
     RAISE EXCEPTION 'assertion_failed_manifest_conflict';
   EXCEPTION WHEN others THEN
@@ -57,7 +57,7 @@ DECLARE
 BEGIN
   SELECT * INTO r FROM record_shuffle_manifest(
     'tenant-a','table-1','hand-issued','holdem',repeat('6',64),repeat('7',64),
-    participant_json,repeat('8',64),52
+    participant_json,repeat('8',64),52::smallint
   );
   IF r.status <> 'recorded' THEN RAISE EXCEPTION 'expected second manifest'; END IF;
 
@@ -107,7 +107,7 @@ BEGIN
   SELECT * INTO r FROM record_shuffle_manifest(
     'tenant-b','table-1','hand-issued','holdem',repeat('f',64),repeat('e',64),
     jsonb_build_array(jsonb_build_object('id','carol','commitment',repeat('d',64))),
-    repeat('c',64),52
+    repeat('c',64),52::smallint
   );
   IF r.status <> 'recorded' THEN RAISE EXCEPTION 'expected tenant-isolated manifest'; END IF;
 
