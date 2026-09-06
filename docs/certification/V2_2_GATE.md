@@ -1,6 +1,6 @@
 # v2.2 — Game Outcome Integrity & Hidden-State Isolation Gate
 
-Status: **AMBER — game cores, persisted fair shuffle, reconnect, spectator and multi-scope isolation complete; controller integration remains**
+Status: **GREEN — all Game Outcome Integrity & Hidden-State Isolation controls certified**
 
 This gate ensures that the Game Core produces tamper-evident, deterministic outcomes while preventing one player, spectator or generic public channel from receiving another player's hidden state. Financial settlement may bind only to an authoritative game outcome digest persisted by Game Core.
 
@@ -36,7 +36,7 @@ This gate ensures that the Game Core produces tamper-evident, deterministic outc
 - [x] Reconnect/resume projection tests proving hidden-state boundaries survive session recovery.
 - [x] Spectator/delayed-observer projection policy.
 - [x] Multi-table and multi-tenant isolation stress corpus.
-- [ ] Game Integrity Controller end-to-end certification.
+- [x] Game Integrity Controller end-to-end certification.
 
 ## Game legality boundary
 
@@ -52,7 +52,9 @@ Classic Teen Patti uses the approved baseline ranking Trail > Pure Sequence > Se
 
 ## Fair-shuffle boundary
 
-The fair-shuffle subsystem now has both a cryptographic primitive and a persisted orchestration boundary. A server commitment plus participant commitments are bound to the exact tenant, table, hand and game. The commitment manifest and canonical-deck digest are persisted before seed reveals are consumed. Reveals then drive an HMAC-SHA256 rejection-sampled Fisher-Yates shuffle. Before any game consumer can receive the deck, the exact shuffled deck digest must be appended durably as `deck_issued`; if persistence fails, the deck is not routable. The runtime router accepts only deck objects created by the audited orchestrator, so a raw or forged deck fails closed.
+The fair-shuffle subsystem has both a cryptographic primitive and a persisted orchestration boundary. A server commitment plus participant commitments are bound to the exact tenant, table, hand and game. The commitment manifest and canonical-deck digest are persisted before seed reveals are consumed. Reveals then drive an HMAC-SHA256 rejection-sampled Fisher-Yates shuffle. Before any game consumer can receive the deck, the exact shuffled deck digest must be appended durably as `deck_issued`; if persistence fails, the deck is not routable.
+
+Audited deck routing is single-use. Once an issued deck is routed to a game consumer it cannot be routed again, preventing one audited shuffle from forking into multiple game branches. The deck is burned before consumer invocation, so consumer failure requires a fresh audited hand rather than a retry with the same deck.
 
 A post-commit abort is an append-only terminal audit event and prevents later deck issuance for that manifest. Once a deck is issued, the same hand cannot be relabelled as aborted. After the hand, disclosure is cryptographically reconstructed and verified before a disclosure digest is appended. The audit database intentionally stores commitments/digests and lifecycle evidence, not plaintext live seed reveals.
 
@@ -70,9 +72,19 @@ The spectator certification corpus executes 4,608 deterministic delayed projecti
 
 ## Multi-table and multi-tenant boundary
 
-Live projection routing now uses a scope-bound table router. Tenant/table identity is captured once when the server opens a table handle; later authoritative publications through that handle cannot supply or override a routing scope. Reconnect has no target-table argument: the authenticated session tenant/table is the sole lookup authority. Authoritative state and memberships are cloned and frozen at publication so later producer mutation cannot alter recovery or spectator output. Duplicate table ownership, unknown scopes, state-version replay and capacity overflow fail closed.
+Live projection routing uses a scope-bound table router. Tenant/table identity is captured once when the server opens a table handle; later authoritative publications through that handle cannot supply or override a routing scope. Reconnect has no target-table argument: the authenticated session tenant/table is the sole lookup authority. Authoritative state and memberships are cloned and frozen at publication so later producer mutation cannot alter recovery or spectator output. Duplicate table ownership, unknown scopes, state-version replay and capacity overflow fail closed.
 
 The isolation stress corpus keeps 2,304 logical table scopes active across 32 tenants, eight table slots and all nine games. It verifies 4,608 valid player reconnect projections, rejects 2,304 stale cross-scope token replays using unique membership epochs, and releases 2,304 correctly scoped delayed spectator snapshots with no private-state markers. Additional adversarial cases prove caller target/viewer hints cannot redirect reconnects and post-publication mutation cannot alter routed state.
+
+## Game Integrity Controller boundary
+
+The Game Integrity Controller is the final fail-closed hand boundary. A hand can be finalized only with a controller-issued token created after a valid audited deck has been routed exactly once. The shuffle audit receipt's tenant/table/hand/game identity, manifest digest, canonical-deck digest and exact shuffled-deck digest are inserted into reserved Game Integrity metadata before the authoritative outcome digest is computed.
+
+The controller also canonicalizes the exact financial settlement intent and domain-separates a SHA-256 settlement-intent digest into that same authoritative outcome commitment. Settlement account IDs must exactly equal the outcome player IDs. Callers cannot provide an outcome digest, financial scope, outcome identity override or reserved Game Integrity metadata. Therefore a conserved but unrelated payout cannot be attached to an otherwise valid game result, and changing the payout intent changes the authoritative outcome digest.
+
+The authoritative outcome must persist successfully before Financial Integrity Controller is reachable. Financial Integrity Controller then reloads that exact tenant/table/hand/epoch commitment, runs the primary and independent shadow settlement implementations, requires identical allocation/digest results, and only then reaches the fenced atomic settlement adapter. Exact retries are idempotent; changed outcome or settlement-intent retries fail closed.
+
+Certification includes both adversarial in-process tests and a production-style PostgreSQL end-to-end test. The PostgreSQL test performs audited shuffle persistence and routing, Game Integrity finalization, append-only outcome persistence, dual financial verification, atomic ledger settlement, exact replay and changed-intent rejection against the real certification schemas.
 
 ## Persisted commitment boundary
 
@@ -80,11 +92,11 @@ The isolation stress corpus keeps 2,304 logical table scopes active across 32 te
 
 `shuffle_manifests` is append-only and uniquely binds one tenant/table/hand to game, manifest, server commitment, participant commitments, canonical-deck digest and deck size. `shuffle_audit_events` is append-only and permits only legal lifecycle sequences: either terminal `aborted`, or `deck_issued` followed by optional `disclosed`. Exact retries are idempotent while changed replays, post-abort issuance, post-issue aborts and mismatched disclosure digests fail closed.
 
-The Financial Integrity Controller no longer accepts a free-form `outcomeDigest`. Before dual settlement verification it resolves the same tenant/table/hand/epoch from persisted Game Core commitments and injects that digest into both independent settlement verifiers. Missing or boundary-mismatched outcomes block financial persistence.
+The Financial Integrity Controller never accepts a free-form `outcomeDigest`. Before dual settlement verification it resolves the same tenant/table/hand/epoch from persisted Game Core commitments and injects that digest into both independent settlement verifiers. Missing or boundary-mismatched outcomes block financial persistence.
 
 ## Security boundary
 
-The outcome digest and fair-shuffle audit evidence cover authoritative game results, commitment/reveal shuffle construction, manifest-before-reveal persistence, audited-deck-only routing and selective-abort tracking. Reconnect recovery adds authenticated viewer derivation and stale-membership invalidation; spectator delivery is public-only and delayed at least 30 seconds; the live table router closes caller-selected cross-table projection paths and has passed a 2,304-table/32-tenant stress corpus. Remaining v2.2 security work is the full Game Integrity Controller end-to-end certification.
+v2.2 now closes the complete Game Integrity chain: authoritative game legality, cryptographic shuffle construction and persistence, single-use audited deck routing, outcome commitment/chaining, reconnect isolation, delayed public spectators, multi-table/multi-tenant routing isolation, settlement-intent binding, independent financial verification and atomic persistence. All mandatory v2.2 controls have certification evidence and the gate is GREEN.
 
 ## Revenue boundary
 
@@ -92,4 +104,4 @@ Poker and Teen Patti first produce conserved pure-game results. The approved 1% 
 
 ## Launch boundary
 
-No part of this gate authorizes real-money play. v2.0 protected-main governance remains unresolved, and real-money launch remains owner-authorized only after all mandatory gates are GREEN.
+v2.2 GREEN does not authorize real-money play. v2.0 protected-main governance remains unresolved, and real-money launch remains owner-authorized only after every mandatory project gate is GREEN and owner-level launch approval is explicitly granted.

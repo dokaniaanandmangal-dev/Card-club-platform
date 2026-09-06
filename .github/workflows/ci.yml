@@ -96,6 +96,10 @@ jobs:
         env:
           PG_INTEGRATION_URL: postgresql://postgres:certification-only@127.0.0.1:5432/postgres
         run: node --test test/postgres-shuffle-adapter.integration.test.js
+      - name: Production-style Game Integrity Controller end-to-end evidence
+        env:
+          PG_INTEGRATION_URL: postgresql://postgres:certification-only@127.0.0.1:5432/postgres
+        run: node --test test/postgres-game-integrity-controller.integration.test.js
 
   migration-rollback:
     runs-on: ubuntu-24.04
