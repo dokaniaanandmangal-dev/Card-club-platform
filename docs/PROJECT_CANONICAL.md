@@ -179,13 +179,15 @@ Teen Patti means the approved **Classic Teen Patti** baseline:
 
 ## Integrity and certification state
 
-As of main commit `572670140f8cfe485fa80c1c4ca5a080945e418e`:
+Current certified lineage establishes:
 
 - Server-rule cores exist for all nine approved games.
 - The auditable commit-reveal fair-shuffle primitive is merged and CI-certified.
-- The fair-shuffle primitive binds commitments to tenant/table/hand/game context, combines server and participant entropy, uses rejection-sampled Fisher-Yates, and supports deterministic post-hand reconstruction without exposing the live deck order.
-- The fair-shuffle primitive alone does not close selective-abort risk; table-orchestrator persistence and audited-deck-only routing still need completion.
-- v2.2 remains AMBER pending orchestrator persistence/abort evidence, reconnect/resume hidden-state tests, spectator/delayed-observer policy, multi-table/multi-tenant isolation stress, and full Game Integrity Controller certification.
+- Shuffle commitments are bound to tenant/table/hand/game context; server and participant entropy drive rejection-sampled Fisher-Yates shuffling with deterministic post-hand reconstruction.
+- The table shuffle orchestrator persists the commitment manifest before reveal consumption, persists the exact deck digest before routing, and rejects raw or forged decks from the audited routing path.
+- Post-commit aborts are append-only terminal events that prevent later deck issuance; once a deck is issued the same hand cannot be relabelled as aborted.
+- Disclosure evidence is cryptographically verified before its digest is appended, while live audit tables deliberately do not persist plaintext seed reveals.
+- v2.2 remains AMBER pending reconnect/resume hidden-state tests, spectator/delayed-observer policy, multi-table/multi-tenant isolation stress, and full Game Integrity Controller certification.
 - v2.0 repository-governance status remains AMBER because `main` is still unprotected; issue #3 tracks protected-main governance.
 - Real-money operation is disabled.
 

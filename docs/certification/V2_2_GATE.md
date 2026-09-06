@@ -1,6 +1,6 @@
 # v2.2 — Game Outcome Integrity & Hidden-State Isolation Gate
 
-Status: **AMBER — all nine server-rule cores complete; fair-shuffle primitive added; recovery/stress/controller integration remain**
+Status: **AMBER — all nine server-rule cores and persisted fair-shuffle orchestration complete; recovery/stress/controller integration remain**
 
 This gate ensures that the Game Core produces tamper-evident, deterministic outcomes while preventing one player, spectator or generic public channel from receiving another player's hidden state. Financial settlement may bind only to an authoritative game outcome digest persisted by Game Core.
 
@@ -23,14 +23,16 @@ This gate ensures that the Game Core produces tamper-evident, deterministic outc
   - [x] 21-Card Marriage exact three-deck custody, draw/discard turns, Open/Hidden Maal isolation, pure/Dublee qualification, Joker restrictions, meld validation and approved bonus scoring.
   - [x] No-Limit Texas Hold'em blinds, betting streets, raise/reopen rules, all-in runout, best-five ranking, side pots and hidden-hole-card isolation.
   - [x] Classic Teen Patti blind/seen play, chaal ranges, pack, paid seen-to-seen sideshow, showdown, exact ranking and hidden-card isolation.
-- [ ] Cryptographically unpredictable shuffle/deal evidence with deterministic audit reconstruction after disclosure.
+- [x] Cryptographically unpredictable shuffle/deal evidence with deterministic audit reconstruction after disclosure.
   - [x] Domain-separated server/participant seed commitments bound to tenant/table/hand/game context.
   - [x] Canonically ordered commitment manifest with tamper-evident manifest digest.
   - [x] HMAC-SHA256 deterministic stream plus rejection-sampled Fisher-Yates shuffle to avoid modulo bias.
   - [x] Post-hand disclosure reconstructs exact card order and verifies manifest/deck digests; tampering fails closed.
   - [x] Runtime server seeds use Node cryptographic randomness; one changed participant seed changes the final deck.
-  - [ ] Table orchestrator must persist the commitment manifest before seed reveals and route only the finalized audited deck into every game core.
-  - [ ] Abort events after manifest commitment must be durably recorded and surfaced to Game Integrity controls to detect selective-abort bias.
+  - [x] Table orchestrator persists the commitment manifest before seed reveals are consumed and routes only an internally attested audited deck to a game consumer.
+  - [x] Deck digest is durably recorded before routing; database failure fails closed and exposes no routable deck.
+  - [x] Abort events after manifest commitment are append-only, terminal for deck issuance and replay-safe, providing selective-abort evidence.
+  - [x] Disclosure evidence is verified before a disclosure digest is appended; live audit tables deliberately persist no plaintext reveal seeds.
 - [ ] Reconnect/resume projection tests proving hidden-state boundaries survive session recovery.
 - [ ] Spectator/delayed-observer projection policy.
 - [ ] Multi-table and multi-tenant isolation stress corpus.
@@ -50,17 +52,21 @@ Classic Teen Patti uses the approved baseline ranking Trail > Pure Sequence > Se
 
 ## Fair-shuffle boundary
 
-The fair-shuffle primitive uses a server commitment plus participant commitments that are bound to the exact tenant, table, hand and game. After commitments are fixed, revealed seeds are combined deterministically and drive an HMAC-SHA256 rejection-sampled Fisher-Yates shuffle. The live public receipt contains commitments and deck digest but no seeds. After the hand, disclosure of all seeds reconstructs the exact card order and detects any changed seed, manifest, digest or order. This reduces unilateral deck manipulation when at least one committed participant contribution is unpredictable, but it does not by itself prevent a server from aborting after seeing valid reveals; committed-abort evidence therefore remains a mandatory orchestration/control item.
+The fair-shuffle subsystem now has both a cryptographic primitive and a persisted orchestration boundary. A server commitment plus participant commitments are bound to the exact tenant, table, hand and game. The commitment manifest and canonical-deck digest are persisted before seed reveals are consumed. Reveals then drive an HMAC-SHA256 rejection-sampled Fisher-Yates shuffle. Before any game consumer can receive the deck, the exact shuffled deck digest must be appended durably as `deck_issued`; if persistence fails, the deck is not routable. The runtime router accepts only deck objects created by the audited orchestrator, so a raw or forged deck fails closed.
+
+A post-commit abort is an append-only terminal audit event and prevents later deck issuance for that manifest. Once a deck is issued, the same hand cannot be relabelled as aborted. After the hand, disclosure is cryptographically reconstructed and verified before a disclosure digest is appended. The audit database intentionally stores commitments/digests and lifecycle evidence, not plaintext live seed reveals.
 
 ## Persisted commitment boundary
 
 `game_outcomes` is append-only and serializes one digest chain per tenant/table. Exact hand replay is idempotent; changed metadata for the same hand, sequence gaps, wrong previous digests, updates and deletes fail closed. Only commitment metadata is persisted in this slice; raw hidden state is deliberately not copied into the database by this mechanism.
 
+`shuffle_manifests` is append-only and uniquely binds one tenant/table/hand to game, manifest, server commitment, participant commitments, canonical-deck digest and deck size. `shuffle_audit_events` is append-only and permits only legal lifecycle sequences: either terminal `aborted`, or `deck_issued` followed by optional `disclosed`. Exact retries are idempotent while changed replays, post-abort issuance, post-issue aborts and mismatched disclosure digests fail closed.
+
 The Financial Integrity Controller no longer accepts a free-form `outcomeDigest`. Before dual settlement verification it resolves the same tenant/table/hand/epoch from persisted Game Core commitments and injects that digest into both independent settlement verifiers. Missing or boundary-mismatched outcomes block financial persistence.
 
 ## Security boundary
 
-The outcome digest and fair-shuffle receipt are tamper-evident evidence, not a substitute for table orchestration. Manifest-before-reveal persistence, selective-abort tracking, reconnect/spectator policy, multi-tenant stress and the full Game Integrity Controller remain mandatory before game integrity can be GREEN.
+The outcome digest and fair-shuffle audit evidence now cover authoritative game results, commitment/reveal shuffle construction, manifest-before-reveal persistence, audited-deck-only routing and selective-abort tracking. Remaining v2.2 security work is reconnect/resume hidden-state isolation, spectator policy, multi-table/multi-tenant stress and the full Game Integrity Controller end-to-end certification.
 
 ## Revenue boundary
 
